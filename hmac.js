@@ -1,16 +1,13 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.hmac = exports.HMAC = void 0;
-const _assert_js_1 = require("./_assert.js");
-const utils_js_1 = require("./utils.js");
+import { hash as assertHash, bytes as assertBytes, exists as assertExists } from './_assert.js';
+import { Hash, toBytes } from './utils.js';
 // HMAC (RFC 2104)
-class HMAC extends utils_js_1.Hash {
+export class HMAC extends Hash {
     constructor(hash, _key) {
         super();
         this.finished = false;
         this.destroyed = false;
-        (0, _assert_js_1.hash)(hash);
-        const key = (0, utils_js_1.toBytes)(_key);
+        assertHash(hash);
+        const key = toBytes(_key);
         this.iHash = hash.create();
         if (typeof this.iHash.update !== 'function')
             throw new Error('Expected instance of class which extends utils.Hash');
@@ -32,13 +29,13 @@ class HMAC extends utils_js_1.Hash {
         pad.fill(0);
     }
     update(buf) {
-        (0, _assert_js_1.exists)(this);
+        assertExists(this);
         this.iHash.update(buf);
         return this;
     }
     digestInto(out) {
-        (0, _assert_js_1.exists)(this);
-        (0, _assert_js_1.bytes)(out, this.outputLen);
+        assertExists(this);
+        assertBytes(out, this.outputLen);
         this.finished = true;
         this.iHash.digestInto(out);
         this.oHash.update(out);
@@ -69,14 +66,12 @@ class HMAC extends utils_js_1.Hash {
         this.iHash.destroy();
     }
 }
-exports.HMAC = HMAC;
 /**
  * HMAC: RFC2104 message authentication code.
  * @param hash - function that would be used e.g. sha256
  * @param key - message key
  * @param message - message data
  */
-const hmac = (hash, key, message) => new HMAC(hash, key).update(message).digest();
-exports.hmac = hmac;
-exports.hmac.create = (hash, key) => new HMAC(hash, key);
+export const hmac = (hash, key, message) => new HMAC(hash, key).update(message).digest();
+hmac.create = (hash, key) => new HMAC(hash, key);
 //# sourceMappingURL=hmac.js.map

@@ -1,59 +1,48 @@
-"use strict";
 /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.randomBytes = exports.wrapXOFConstructorWithOpts = exports.wrapConstructorWithOpts = exports.wrapConstructor = exports.checkOpts = exports.Hash = exports.concatBytes = exports.toBytes = exports.utf8ToBytes = exports.asyncLoop = exports.nextTick = exports.hexToBytes = exports.bytesToHex = exports.byteSwap32 = exports.byteSwapIfBE = exports.byteSwap = exports.isLE = exports.rotl = exports.rotr = exports.createView = exports.u32 = exports.u8 = exports.isBytes = void 0;
 // We use WebCrypto aka globalThis.crypto, which exists in browsers and node.js 16+.
 // node.js versions earlier than v19 don't declare it in global scope.
 // For node.js, package.json#exports field mapping rewrites import
 // from `crypto` to `cryptoNode`, which imports native module.
 // Makes the utils un-importable in browsers without a bundler.
 // Once node.js 18 is deprecated (2025-04-30), we can just drop the import.
-const crypto_1 = require("@noble/hashes/crypto");
-const _assert_js_1 = require("./_assert.js");
+import { crypto } from '@noble/hashes/crypto';
+import { bytes as abytes } from './_assert.js';
 // export { isBytes } from './_assert.js';
 // We can't reuse isBytes from _assert, because somehow this causes huge perf issues
-function isBytes(a) {
+export function isBytes(a) {
     return (a instanceof Uint8Array ||
         (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array'));
 }
-exports.isBytes = isBytes;
 // Cast array to different type
-const u8 = (arr) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-exports.u8 = u8;
-const u32 = (arr) => new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
-exports.u32 = u32;
+export const u8 = (arr) => new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+export const u32 = (arr) => new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
 // Cast array to view
-const createView = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-exports.createView = createView;
+export const createView = (arr) => new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 // The rotate right (circular right shift) operation for uint32
-const rotr = (word, shift) => (word << (32 - shift)) | (word >>> shift);
-exports.rotr = rotr;
+export const rotr = (word, shift) => (word << (32 - shift)) | (word >>> shift);
 // The rotate left (circular left shift) operation for uint32
-const rotl = (word, shift) => (word << shift) | ((word >>> (32 - shift)) >>> 0);
-exports.rotl = rotl;
-exports.isLE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+export const rotl = (word, shift) => (word << shift) | ((word >>> (32 - shift)) >>> 0);
+export const isLE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 // The byte swap operation for uint32
-const byteSwap = (word) => ((word << 24) & 0xff000000) |
+export const byteSwap = (word) => ((word << 24) & 0xff000000) |
     ((word << 8) & 0xff0000) |
     ((word >>> 8) & 0xff00) |
     ((word >>> 24) & 0xff);
-exports.byteSwap = byteSwap;
 // Conditionally byte swap if on a big-endian platform
-exports.byteSwapIfBE = exports.isLE ? (n) => n : (n) => (0, exports.byteSwap)(n);
+export const byteSwapIfBE = isLE ? (n) => n : (n) => byteSwap(n);
 // In place byte swap for Uint32Array
-function byteSwap32(arr) {
+export function byteSwap32(arr) {
     for (let i = 0; i < arr.length; i++) {
-        arr[i] = (0, exports.byteSwap)(arr[i]);
+        arr[i] = byteSwap(arr[i]);
     }
 }
-exports.byteSwap32 = byteSwap32;
 // Array where index 0xf0 (240) is mapped to string 'f0'
 const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
 /**
  * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
-function bytesToHex(bytes) {
-    (0, _assert_js_1.bytes)(bytes);
+export function bytesToHex(bytes) {
+    abytes(bytes);
     // pre-caching improves the speed 6x
     let hex = '';
     for (let i = 0; i < bytes.length; i++) {
@@ -61,7 +50,6 @@ function bytesToHex(bytes) {
     }
     return hex;
 }
-exports.bytesToHex = bytesToHex;
 // We use optimized technique to convert hex string to byte array
 const asciis = { _0: 48, _9: 57, _A: 65, _F: 70, _a: 97, _f: 102 };
 function asciiToBase16(char) {
@@ -76,7 +64,7 @@ function asciiToBase16(char) {
 /**
  * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  */
-function hexToBytes(hex) {
+export function hexToBytes(hex) {
     if (typeof hex !== 'string')
         throw new Error('hex string expected, got ' + typeof hex);
     const hl = hex.length;
@@ -95,14 +83,12 @@ function hexToBytes(hex) {
     }
     return array;
 }
-exports.hexToBytes = hexToBytes;
 // There is no setImmediate in browser and setTimeout is slow.
 // call of async fn will return Promise, which will be fullfiled only on
 // next scheduler queue processing step and this is exactly what we need.
-const nextTick = async () => { };
-exports.nextTick = nextTick;
+export const nextTick = async () => { };
 // Returns control to thread each 'tick' ms to avoid blocking
-async function asyncLoop(iters, tick, cb) {
+export async function asyncLoop(iters, tick, cb) {
     let ts = Date.now();
     for (let i = 0; i < iters; i++) {
         cb(i);
@@ -110,40 +96,37 @@ async function asyncLoop(iters, tick, cb) {
         const diff = Date.now() - ts;
         if (diff >= 0 && diff < tick)
             continue;
-        await (0, exports.nextTick)();
+        await nextTick();
         ts += diff;
     }
 }
-exports.asyncLoop = asyncLoop;
 /**
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
-function utf8ToBytes(str) {
+export function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
     return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
 }
-exports.utf8ToBytes = utf8ToBytes;
 /**
  * Normalizes (non-hex) string or Uint8Array to Uint8Array.
  * Warning: when Uint8Array is passed, it would NOT get copied.
  * Keep in mind for future mutable operations.
  */
-function toBytes(data) {
+export function toBytes(data) {
     if (typeof data === 'string')
         data = utf8ToBytes(data);
-    (0, _assert_js_1.bytes)(data);
+    abytes(data);
     return data;
 }
-exports.toBytes = toBytes;
 /**
  * Copies several Uint8Arrays into one.
  */
-function concatBytes(...arrays) {
+export function concatBytes(...arrays) {
     let sum = 0;
     for (let i = 0; i < arrays.length; i++) {
         const a = arrays[i];
-        (0, _assert_js_1.bytes)(a);
+        abytes(a);
         sum += a.length;
     }
     const res = new Uint8Array(sum);
@@ -154,24 +137,21 @@ function concatBytes(...arrays) {
     }
     return res;
 }
-exports.concatBytes = concatBytes;
 // For runtime check if class implements interface
-class Hash {
+export class Hash {
     // Safe version that clones internal state
     clone() {
         return this._cloneInto();
     }
 }
-exports.Hash = Hash;
 const toStr = {}.toString;
-function checkOpts(defaults, opts) {
+export function checkOpts(defaults, opts) {
     if (opts !== undefined && toStr.call(opts) !== '[object Object]')
         throw new Error('Options should be object or undefined');
     const merged = Object.assign(defaults, opts);
     return merged;
 }
-exports.checkOpts = checkOpts;
-function wrapConstructor(hashCons) {
+export function wrapConstructor(hashCons) {
     const hashC = (msg) => hashCons().update(toBytes(msg)).digest();
     const tmp = hashCons();
     hashC.outputLen = tmp.outputLen;
@@ -179,8 +159,7 @@ function wrapConstructor(hashCons) {
     hashC.create = () => hashCons();
     return hashC;
 }
-exports.wrapConstructor = wrapConstructor;
-function wrapConstructorWithOpts(hashCons) {
+export function wrapConstructorWithOpts(hashCons) {
     const hashC = (msg, opts) => hashCons(opts).update(toBytes(msg)).digest();
     const tmp = hashCons({});
     hashC.outputLen = tmp.outputLen;
@@ -188,8 +167,7 @@ function wrapConstructorWithOpts(hashCons) {
     hashC.create = (opts) => hashCons(opts);
     return hashC;
 }
-exports.wrapConstructorWithOpts = wrapConstructorWithOpts;
-function wrapXOFConstructorWithOpts(hashCons) {
+export function wrapXOFConstructorWithOpts(hashCons) {
     const hashC = (msg, opts) => hashCons(opts).update(toBytes(msg)).digest();
     const tmp = hashCons({});
     hashC.outputLen = tmp.outputLen;
@@ -197,15 +175,13 @@ function wrapXOFConstructorWithOpts(hashCons) {
     hashC.create = (opts) => hashCons(opts);
     return hashC;
 }
-exports.wrapXOFConstructorWithOpts = wrapXOFConstructorWithOpts;
 /**
  * Secure PRNG. Uses `crypto.getRandomValues`, which defers to OS.
  */
-function randomBytes(bytesLength = 32) {
-    if (crypto_1.crypto && typeof crypto_1.crypto.getRandomValues === 'function') {
-        return crypto_1.crypto.getRandomValues(new Uint8Array(bytesLength));
+export function randomBytes(bytesLength = 32) {
+    if (crypto && typeof crypto.getRandomValues === 'function') {
+        return crypto.getRandomValues(new Uint8Array(bytesLength));
     }
     throw new Error('crypto.getRandomValues must be defined');
 }
-exports.randomBytes = randomBytes;
 //# sourceMappingURL=utils.js.map

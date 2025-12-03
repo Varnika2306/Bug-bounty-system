@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sha1 = void 0;
-const _md_js_1 = require("./_md.js");
-const utils_js_1 = require("./utils.js");
+import { HashMD, Chi, Maj } from './_md.js';
+import { rotl, wrapConstructor } from './utils.js';
 // SHA1 (RFC 3174) was cryptographically broken. It's still used. Don't use it for a new protocol.
 // Initial state
 const SHA1_IV = /* @__PURE__ */ new Uint32Array([
@@ -11,7 +8,7 @@ const SHA1_IV = /* @__PURE__ */ new Uint32Array([
 // Temporary buffer, not used to store anything between runs
 // Named this way because it matches specification.
 const SHA1_W = /* @__PURE__ */ new Uint32Array(80);
-class SHA1 extends _md_js_1.HashMD {
+class SHA1 extends HashMD {
     constructor() {
         super(64, 20, 8, false);
         this.A = SHA1_IV[0] | 0;
@@ -35,13 +32,13 @@ class SHA1 extends _md_js_1.HashMD {
         for (let i = 0; i < 16; i++, offset += 4)
             SHA1_W[i] = view.getUint32(offset, false);
         for (let i = 16; i < 80; i++)
-            SHA1_W[i] = (0, utils_js_1.rotl)(SHA1_W[i - 3] ^ SHA1_W[i - 8] ^ SHA1_W[i - 14] ^ SHA1_W[i - 16], 1);
+            SHA1_W[i] = rotl(SHA1_W[i - 3] ^ SHA1_W[i - 8] ^ SHA1_W[i - 14] ^ SHA1_W[i - 16], 1);
         // Compression function main loop, 80 rounds
         let { A, B, C, D, E } = this;
         for (let i = 0; i < 80; i++) {
             let F, K;
             if (i < 20) {
-                F = (0, _md_js_1.Chi)(B, C, D);
+                F = Chi(B, C, D);
                 K = 0x5a827999;
             }
             else if (i < 40) {
@@ -49,17 +46,17 @@ class SHA1 extends _md_js_1.HashMD {
                 K = 0x6ed9eba1;
             }
             else if (i < 60) {
-                F = (0, _md_js_1.Maj)(B, C, D);
+                F = Maj(B, C, D);
                 K = 0x8f1bbcdc;
             }
             else {
                 F = B ^ C ^ D;
                 K = 0xca62c1d6;
             }
-            const T = ((0, utils_js_1.rotl)(A, 5) + F + E + K + SHA1_W[i]) | 0;
+            const T = (rotl(A, 5) + F + E + K + SHA1_W[i]) | 0;
             E = D;
             D = C;
-            C = (0, utils_js_1.rotl)(B, 30);
+            C = rotl(B, 30);
             B = A;
             A = T;
         }
@@ -79,5 +76,5 @@ class SHA1 extends _md_js_1.HashMD {
         this.buffer.fill(0);
     }
 }
-exports.sha1 = (0, utils_js_1.wrapConstructor)(() => new SHA1());
+export const sha1 = /* @__PURE__ */ wrapConstructor(() => new SHA1());
 //# sourceMappingURL=sha1.js.map

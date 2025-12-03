@@ -1,12 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.argon2id = exports.argon2i = exports.argon2d = void 0;
-const _assert_js_1 = require("./_assert.js");
-const utils_js_1 = require("./utils.js");
-const blake2b_js_1 = require("./blake2b.js");
-const _u64_js_1 = require("./_u64.js");
+import { number as assertNumber } from './_assert.js';
+import { toBytes, u8, u32 } from './utils.js';
+import { blake2b } from './blake2b.js';
+import { add3H, add3L, rotr32H, rotr32L, rotrBH, rotrBL, rotrSH, rotrSL } from './_u64.js';
 const ARGON2_SYNC_POINTS = 4;
-const toBytesOptional = (buf) => (buf !== undefined ? (0, utils_js_1.toBytes)(buf) : new Uint8Array([]));
+const toBytesOptional = (buf) => (buf !== undefined ? toBytes(buf) : new Uint8Array([]));
 function mul(a, b) {
     const aL = a & 0xffff;
     const aH = a >>> 16;
@@ -32,8 +29,8 @@ function mul2(a, b) {
 function blamka(Ah, Al, Bh, Bl) {
     const { h: Ch, l: Cl } = mul2(Al, Bl);
     // A + B + (2 * A * B)
-    const Rll = (0, _u64_js_1.add3L)(Al, Bl, Cl);
-    return { h: (0, _u64_js_1.add3H)(Rll, Ah, Bh, Ch), l: Rll | 0 };
+    const Rll = add3L(Al, Bl, Cl);
+    return { h: add3H(Rll, Ah, Bh, Ch), l: Rll | 0 };
 }
 // Temporary block buffer
 const A2_BUF = new Uint32Array(256);
@@ -44,16 +41,16 @@ function G(a, b, c, d) {
     let Dl = A2_BUF[2 * d], Dh = A2_BUF[2 * d + 1]; // prettier-ignore
     ({ h: Ah, l: Al } = blamka(Ah, Al, Bh, Bl));
     ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: (0, _u64_js_1.rotr32H)(Dh, Dl), Dl: (0, _u64_js_1.rotr32L)(Dh, Dl) });
+    ({ Dh, Dl } = { Dh: rotr32H(Dh, Dl), Dl: rotr32L(Dh, Dl) });
     ({ h: Ch, l: Cl } = blamka(Ch, Cl, Dh, Dl));
     ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: (0, _u64_js_1.rotrSH)(Bh, Bl, 24), Bl: (0, _u64_js_1.rotrSL)(Bh, Bl, 24) });
+    ({ Bh, Bl } = { Bh: rotrSH(Bh, Bl, 24), Bl: rotrSL(Bh, Bl, 24) });
     ({ h: Ah, l: Al } = blamka(Ah, Al, Bh, Bl));
     ({ Dh, Dl } = { Dh: Dh ^ Ah, Dl: Dl ^ Al });
-    ({ Dh, Dl } = { Dh: (0, _u64_js_1.rotrSH)(Dh, Dl, 16), Dl: (0, _u64_js_1.rotrSL)(Dh, Dl, 16) });
+    ({ Dh, Dl } = { Dh: rotrSH(Dh, Dl, 16), Dl: rotrSL(Dh, Dl, 16) });
     ({ h: Ch, l: Cl } = blamka(Ch, Cl, Dh, Dl));
     ({ Bh, Bl } = { Bh: Bh ^ Ch, Bl: Bl ^ Cl });
-    ({ Bh, Bl } = { Bh: (0, _u64_js_1.rotrBH)(Bh, Bl, 63), Bl: (0, _u64_js_1.rotrBL)(Bh, Bl, 63) });
+    ({ Bh, Bl } = { Bh: rotrBH(Bh, Bl, 63), Bl: rotrBL(Bh, Bl, 63) });
     (A2_BUF[2 * a] = Al), (A2_BUF[2 * a + 1] = Ah);
     (A2_BUF[2 * b] = Bl), (A2_BUF[2 * b + 1] = Bh);
     (A2_BUF[2 * c] = Cl), (A2_BUF[2 * c + 1] = Ch);
@@ -92,25 +89,25 @@ function block(x, xPos, yPos, outPos, needXor) {
 }
 // Variable-Length Hash Function H'
 function Hp(A, dkLen) {
-    const A8 = (0, utils_js_1.u8)(A);
+    const A8 = u8(A);
     const T = new Uint32Array(1);
-    const T8 = (0, utils_js_1.u8)(T);
+    const T8 = u8(T);
     T[0] = dkLen;
     // Fast path
     if (dkLen <= 64)
-        return blake2b_js_1.blake2b.create({ dkLen }).update(T8).update(A8).digest();
+        return blake2b.create({ dkLen }).update(T8).update(A8).digest();
     const out = new Uint8Array(dkLen);
-    let V = blake2b_js_1.blake2b.create({}).update(T8).update(A8).digest();
+    let V = blake2b.create({}).update(T8).update(A8).digest();
     let pos = 0;
     // First block
     out.set(V.subarray(0, 32));
     pos += 32;
     // Rest blocks
     for (; dkLen - pos > 64; pos += 32)
-        out.set((V = (0, blake2b_js_1.blake2b)(V)).subarray(0, 32), pos);
+        out.set((V = blake2b(V)).subarray(0, 32), pos);
     // Last block
-    out.set((0, blake2b_js_1.blake2b)(V, { dkLen: dkLen - pos }), pos);
-    return (0, utils_js_1.u32)(out);
+    out.set(blake2b(V, { dkLen: dkLen - pos }), pos);
+    return u32(out);
 }
 function indexAlpha(r, s, laneLen, segmentLen, index, randL, sameLane = false) {
     let area;
@@ -133,8 +130,8 @@ function indexAlpha(r, s, laneLen, segmentLen, index, randL, sameLane = false) {
     return (startPos + rel) % laneLen;
 }
 function argon2Init(type, password, salt, opts) {
-    password = (0, utils_js_1.toBytes)(password);
-    salt = (0, utils_js_1.toBytes)(salt);
+    password = toBytes(password);
+    salt = toBytes(salt);
     let { p, dkLen, m, t, version, key, personalization, maxmem, onProgress } = {
         ...opts,
         version: opts.version || 0x13,
@@ -142,11 +139,11 @@ function argon2Init(type, password, salt, opts) {
         maxmem: 2 ** 32,
     };
     // Validation
-    (0, _assert_js_1.number)(p);
-    (0, _assert_js_1.number)(dkLen);
-    (0, _assert_js_1.number)(m);
-    (0, _assert_js_1.number)(t);
-    (0, _assert_js_1.number)(version);
+    assertNumber(p);
+    assertNumber(dkLen);
+    assertNumber(m);
+    assertNumber(t);
+    assertNumber(version);
     if (dkLen < 4 || dkLen >= 2 ** 32)
         throw new Error('Argon2: dkLen should be at least 4 bytes');
     if (p < 1 || p >= 2 ** 32)
@@ -157,10 +154,10 @@ function argon2Init(type, password, salt, opts) {
         throw new Error(`Argon2: memory should be at least 8*p bytes`);
     if (version !== 16 && version !== 19)
         throw new Error(`Argon2: unknown version=${version}`);
-    password = (0, utils_js_1.toBytes)(password);
+    password = toBytes(password);
     if (password.length < 0 || password.length >= 2 ** 32)
         throw new Error('Argon2: password should be less than 4 GB');
-    salt = (0, utils_js_1.toBytes)(salt);
+    salt = toBytes(salt);
     if (salt.length < 8)
         throw new Error('Argon2: salt should be at least 8 bytes');
     key = toBytesOptional(key);
@@ -175,9 +172,9 @@ function argon2Init(type, password, salt, opts) {
     const laneLen = Math.floor(mP / p);
     const segmentLen = Math.floor(laneLen / ARGON2_SYNC_POINTS);
     // H0
-    const h = blake2b_js_1.blake2b.create({});
+    const h = blake2b.create({});
     const BUF = new Uint32Array(1);
-    const BUF8 = (0, utils_js_1.u8)(BUF);
+    const BUF8 = u8(BUF);
     for (const i of [p, dkLen, m, t, version, type]) {
         if (i < 0 || i >= 2 ** 32)
             throw new Error(`Argon2: wrong parameter=${i}, expected uint32`);
@@ -189,7 +186,7 @@ function argon2Init(type, password, salt, opts) {
         h.update(BUF8).update(i);
     }
     const H0 = new Uint32Array(18);
-    const H0_8 = (0, utils_js_1.u8)(H0);
+    const H0_8 = u8(H0);
     h.digestInto(H0_8);
     // 256 u32 = 1024 (BLOCK_SIZE)
     const memUsed = mP * 256;
@@ -228,7 +225,7 @@ function argon2Output(B, p, laneLen, dkLen) {
     for (let l = 0; l < p; l++)
         for (let j = 0; j < 256; j++)
             B_final[j] ^= B[256 * (laneLen * l + laneLen - 1) + j];
-    return (0, utils_js_1.u8)(Hp(B_final, dkLen));
+    return u8(Hp(B_final, dkLen));
 }
 function processBlock(B, address, l, r, s, index, laneLen, segmentLen, lanes, offset, prev, dataIndependent, needXor) {
     if (offset % laneLen)
@@ -294,10 +291,7 @@ function argon2(type, password, salt, opts) {
     }
     return argon2Output(B, p, laneLen, dkLen);
 }
-const argon2d = (password, salt, opts) => argon2(0 /* Types.Argond2d */, password, salt, opts);
-exports.argon2d = argon2d;
-const argon2i = (password, salt, opts) => argon2(1 /* Types.Argon2i */, password, salt, opts);
-exports.argon2i = argon2i;
-const argon2id = (password, salt, opts) => argon2(2 /* Types.Argon2id */, password, salt, opts);
-exports.argon2id = argon2id;
+export const argon2d = (password, salt, opts) => argon2(0 /* Types.Argond2d */, password, salt, opts);
+export const argon2i = (password, salt, opts) => argon2(1 /* Types.Argon2i */, password, salt, opts);
+export const argon2id = (password, salt, opts) => argon2(2 /* Types.Argon2id */, password, salt, opts);
 //# sourceMappingURL=argon2.js.map

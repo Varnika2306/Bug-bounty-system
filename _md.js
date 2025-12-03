@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.HashMD = exports.Maj = exports.Chi = void 0;
-const _assert_js_1 = require("./_assert.js");
-const utils_js_1 = require("./utils.js");
+import { exists, output } from './_assert.js';
+import { Hash, createView, toBytes } from './utils.js';
 // Polyfill for Safari 14
 function setBigUint64(view, byteOffset, value, isLE) {
     if (typeof view.setBigUint64 === 'function')
@@ -17,16 +14,14 @@ function setBigUint64(view, byteOffset, value, isLE) {
     view.setUint32(byteOffset + l, wl, isLE);
 }
 // Choice: a ? b : c
-const Chi = (a, b, c) => (a & b) ^ (~a & c);
-exports.Chi = Chi;
+export const Chi = (a, b, c) => (a & b) ^ (~a & c);
 // Majority function, true if any two inpust is true
-const Maj = (a, b, c) => (a & b) ^ (a & c) ^ (b & c);
-exports.Maj = Maj;
+export const Maj = (a, b, c) => (a & b) ^ (a & c) ^ (b & c);
 /**
  * Merkle-Damgard hash construction base class.
  * Could be used to create MD5, RIPEMD, SHA1, SHA2.
  */
-class HashMD extends utils_js_1.Hash {
+export class HashMD extends Hash {
     constructor(blockLen, outputLen, padOffset, isLE) {
         super();
         this.blockLen = blockLen;
@@ -38,18 +33,18 @@ class HashMD extends utils_js_1.Hash {
         this.pos = 0;
         this.destroyed = false;
         this.buffer = new Uint8Array(blockLen);
-        this.view = (0, utils_js_1.createView)(this.buffer);
+        this.view = createView(this.buffer);
     }
     update(data) {
-        (0, _assert_js_1.exists)(this);
+        exists(this);
         const { view, buffer, blockLen } = this;
-        data = (0, utils_js_1.toBytes)(data);
+        data = toBytes(data);
         const len = data.length;
         for (let pos = 0; pos < len;) {
             const take = Math.min(blockLen - this.pos, len - pos);
             // Fast path: we have at least one block in input, cast it to view and process
             if (take === blockLen) {
-                const dataView = (0, utils_js_1.createView)(data);
+                const dataView = createView(data);
                 for (; blockLen <= len - pos; pos += blockLen)
                     this.process(dataView, pos);
                 continue;
@@ -67,8 +62,8 @@ class HashMD extends utils_js_1.Hash {
         return this;
     }
     digestInto(out) {
-        (0, _assert_js_1.exists)(this);
-        (0, _assert_js_1.output)(out, this);
+        exists(this);
+        output(out, this);
         this.finished = true;
         // Padding
         // We can avoid allocation of buffer for padding completely if it
@@ -92,7 +87,7 @@ class HashMD extends utils_js_1.Hash {
         // So we just write lowest 64 bits of that value.
         setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
         this.process(view, 0);
-        const oview = (0, utils_js_1.createView)(out);
+        const oview = createView(out);
         const len = this.outputLen;
         // NOTE: we do division by 4 later, which should be fused in single op with modulo by JIT
         if (len % 4)
@@ -124,5 +119,4 @@ class HashMD extends utils_js_1.Hash {
         return to;
     }
 }
-exports.HashMD = HashMD;
 //# sourceMappingURL=_md.js.map

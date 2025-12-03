@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ripemd160 = exports.RIPEMD160 = void 0;
-const _md_js_1 = require("./_md.js");
-const utils_js_1 = require("./utils.js");
+import { HashMD } from './_md.js';
+import { rotl, wrapConstructor } from './utils.js';
 // https://homes.esat.kuleuven.be/~bosselae/ripemd160.html
 // https://homes.esat.kuleuven.be/~bosselae/ripemd160/pdf/AB-9601/AB-9601.pdf
 const Rho = /* @__PURE__ */ new Uint8Array([7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8]);
@@ -43,7 +40,7 @@ function f(group, x, y, z) {
 }
 // Temporary buffer, not used to store anything between runs
 const R_BUF = /* @__PURE__ */ new Uint32Array(16);
-class RIPEMD160 extends _md_js_1.HashMD {
+export class RIPEMD160 extends HashMD {
     constructor() {
         super(64, 20, 8, true);
         this.h0 = 0x67452301 | 0;
@@ -76,13 +73,13 @@ class RIPEMD160 extends _md_js_1.HashMD {
             const rl = idxL[group], rr = idxR[group]; // prettier-ignore
             const sl = shiftsL[group], sr = shiftsR[group]; // prettier-ignore
             for (let i = 0; i < 16; i++) {
-                const tl = ((0, utils_js_1.rotl)(al + f(group, bl, cl, dl) + R_BUF[rl[i]] + hbl, sl[i]) + el) | 0;
-                al = el, el = dl, dl = (0, utils_js_1.rotl)(cl, 10) | 0, cl = bl, bl = tl; // prettier-ignore
+                const tl = (rotl(al + f(group, bl, cl, dl) + R_BUF[rl[i]] + hbl, sl[i]) + el) | 0;
+                al = el, el = dl, dl = rotl(cl, 10) | 0, cl = bl, bl = tl; // prettier-ignore
             }
             // 2 loops are 10% faster
             for (let i = 0; i < 16; i++) {
-                const tr = ((0, utils_js_1.rotl)(ar + f(rGroup, br, cr, dr) + R_BUF[rr[i]] + hbr, sr[i]) + er) | 0;
-                ar = er, er = dr, dr = (0, utils_js_1.rotl)(cr, 10) | 0, cr = br, br = tr; // prettier-ignore
+                const tr = (rotl(ar + f(rGroup, br, cr, dr) + R_BUF[rr[i]] + hbr, sr[i]) + er) | 0;
+                ar = er, er = dr, dr = rotl(cr, 10) | 0, cr = br, br = tr; // prettier-ignore
             }
         }
         // Add the compressed chunk to the current hash value
@@ -97,10 +94,9 @@ class RIPEMD160 extends _md_js_1.HashMD {
         this.set(0, 0, 0, 0, 0);
     }
 }
-exports.RIPEMD160 = RIPEMD160;
 /**
  * RIPEMD-160 - a hash function from 1990s.
  * @param message - msg that would be hashed
  */
-exports.ripemd160 = (0, utils_js_1.wrapConstructor)(() => new RIPEMD160());
+export const ripemd160 = /* @__PURE__ */ wrapConstructor(() => new RIPEMD160());
 //# sourceMappingURL=ripemd160.js.map
