@@ -1,35 +1,31 @@
 {
-  "name": "blockchain",
-  "version": "1.0.0",
-  "description": "",
-  "main": "hardhat.config.js",
-  "directories": {
-    "test": "test"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
-    "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.10",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
-    "@nomicfoundation/hardhat-verify": "^2.0.13",
-    "@openzeppelin/contracts": "^4.9.3",
-    "@typechain/ethers-v6": "^0.5.1",
-    "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "^4.3.20",
-    "@types/mocha": "^10.0.10",
-    "chai": "^4.5.0",
-    "ethers": "^6.13.5",
-    "hardhat": "^2.22.19",
-    "hardhat-gas-reporter": "^1.0.10",
-    "solidity-coverage": "^0.8.14",
-    "ts-node": "^10.9.2",
-    "typechain": "^8.3.2",
-    "typescript": "^5.8.2"
-  }
+    "name": "web3-utils",
+    "version": "1.10.4",
+    "description": "Collection of utility functions used in web3.js.",
+    "repository": "https://github.com/ethereum/web3.js/tree/1.x/packages/web3-utils",
+    "license": "LGPL-3.0",
+    "engines": {
+        "node": ">=8.0.0"
+    },
+    "types": "types/index.d.ts",
+    "scripts": {
+        "compile": "tsc -b tsconfig.json",
+        "dtslint": "dtslint --localTs ../../node_modules/typescript/lib types"
+    },
+    "main": "lib/index.js",
+    "dependencies": {
+        "@ethereumjs/util": "^8.1.0",
+        "bn.js": "^5.2.1",
+        "ethereum-bloom-filters": "^1.0.6",
+        "ethereum-cryptography": "^2.1.2",
+        "ethjs-unit": "0.1.6",
+        "number-to-bn": "1.7.0",
+        "randombytes": "^2.1.0",
+        "utf8": "3.0.0"
+    },
+    "devDependencies": {
+        "dtslint": "^3.4.1",
+        "typescript": "4.9.5"
+    },
+    "gitHead": "56d35a4a9ec59c2735085dce1a5eebb0bb44fbce"
 }
