@@ -1,11 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.wNAF = wNAF;
-exports.validateBasic = validateBasic;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Abelian group utilities
-const modular_js_1 = require("./modular.js");
-const utils_js_1 = require("./utils.js");
+import { validateField, nLength } from './modular.js';
+import { validateObject } from './utils.js';
 const _0n = BigInt(0);
 const _1n = BigInt(1);
 // Elliptic curve multiplication of Point by scalar. Fragile.
@@ -19,7 +15,7 @@ const _1n = BigInt(1);
 // - wNAF reduces table size: 2x less memory + 2x faster generation, but 10% slower multiplication
 // TODO: Research returning 2d JS array of windows, instead of a single window. This would allow
 // windows to be in different memory locations
-function wNAF(c, bits) {
+export function wNAF(c, bits) {
     const constTimeNegate = (condition, item) => {
         const neg = item.negate();
         return condition ? neg : item;
@@ -139,9 +135,9 @@ function wNAF(c, bits) {
         },
     };
 }
-function validateBasic(curve) {
-    (0, modular_js_1.validateField)(curve.Fp);
-    (0, utils_js_1.validateObject)(curve, {
+export function validateBasic(curve) {
+    validateField(curve.Fp);
+    validateObject(curve, {
         n: 'bigint',
         h: 'bigint',
         Gx: 'field',
@@ -152,7 +148,7 @@ function validateBasic(curve) {
     });
     // Set defaults
     return Object.freeze({
-        ...(0, modular_js_1.nLength)(curve.n, curve.nBitLength),
+        ...nLength(curve.n, curve.nBitLength),
         ...curve,
         ...{ p: curve.Fp.ORDER },
     });

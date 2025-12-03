@@ -1,18 +1,11 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DER = void 0;
-exports.weierstrassPoints = weierstrassPoints;
-exports.weierstrass = weierstrass;
-exports.SWUFpSqrtRatio = SWUFpSqrtRatio;
-exports.mapToCurveSimpleSWU = mapToCurveSimpleSWU;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Short Weierstrass curve. The formula is: y² = x³ + ax + b
-const curve_js_1 = require("./curve.js");
-const mod = require("./modular.js");
-const ut = require("./utils.js");
-const utils_js_1 = require("./utils.js");
+import { validateBasic, wNAF } from './curve.js';
+import * as mod from './modular.js';
+import * as ut from './utils.js';
+import { ensureBytes } from './utils.js';
 function validatePointOpts(curve) {
-    const opts = (0, curve_js_1.validateBasic)(curve);
+    const opts = validateBasic(curve);
     ut.validateObject(opts, {
         a: 'field',
         b: 'field',
@@ -40,7 +33,7 @@ function validatePointOpts(curve) {
 }
 // ASN.1 DER encoding utilities
 const { bytesToNumberBE: b2n, hexToBytes: h2b } = ut;
-exports.DER = {
+export const DER = {
     // asn.1 DER encoding utils
     Err: class DERErr extends Error {
         constructor(m = '') {
@@ -48,7 +41,7 @@ exports.DER = {
         }
     },
     _parseInt(data) {
-        const { Err: E } = exports.DER;
+        const { Err: E } = DER;
         if (data.length < 2 || data[0] !== 0x02)
             throw new E('Invalid signature integer tag');
         const len = data[1];
@@ -67,7 +60,7 @@ exports.DER = {
     },
     toSig(hex) {
         // parse DER signature
-        const { Err: E } = exports.DER;
+        const { Err: E } = DER;
         const data = typeof hex === 'string' ? h2b(hex) : hex;
         ut.abytes(data);
         let l = data.length;
@@ -75,8 +68,8 @@ exports.DER = {
             throw new E('Invalid signature tag');
         if (data[1] !== l - 2)
             throw new E('Invalid signature: incorrect length');
-        const { d: r, l: sBytes } = exports.DER._parseInt(data.subarray(2));
-        const { d: s, l: rBytesLeft } = exports.DER._parseInt(sBytes);
+        const { d: r, l: sBytes } = DER._parseInt(data.subarray(2));
+        const { d: s, l: rBytesLeft } = DER._parseInt(sBytes);
         if (rBytesLeft.length)
             throw new E('Invalid signature: left bytes after parsing');
         return { r, s };
@@ -100,7 +93,7 @@ exports.DER = {
 // Be friendly to bad ECMAScript parsers by not using bigint literals
 // prettier-ignore
 const _0n = BigInt(0), _1n = BigInt(1), _2n = BigInt(2), _3n = BigInt(3), _4n = BigInt(4);
-function weierstrassPoints(opts) {
+export function weierstrassPoints(opts) {
     const CURVE = validatePointOpts(opts);
     const { Fp } = CURVE; // All curves has same field / group length as for now, but they can differ
     const toBytes = CURVE.toBytes ||
@@ -158,7 +151,7 @@ function weierstrassPoints(opts) {
             num =
                 typeof key === 'bigint'
                     ? key
-                    : ut.bytesToNumberBE((0, utils_js_1.ensureBytes)('private key', key, nByteLength));
+                    : ut.bytesToNumberBE(ensureBytes('private key', key, nByteLength));
         }
         catch (error) {
             throw new Error(`private key must be ${nByteLength} bytes, hex or bigint, not ${typeof key}`);
@@ -225,7 +218,7 @@ function weierstrassPoints(opts) {
          * @param hex short/long ECDSA hex
          */
         static fromHex(hex) {
-            const P = Point.fromAffine(fromBytes((0, utils_js_1.ensureBytes)('pointHex', hex)));
+            const P = Point.fromAffine(fromBytes(ensureBytes('pointHex', hex)));
             P.assertValidity();
             return P;
         }
@@ -517,7 +510,7 @@ function weierstrassPoints(opts) {
     Point.BASE = new Point(CURVE.Gx, CURVE.Gy, Fp.ONE);
     Point.ZERO = new Point(Fp.ZERO, Fp.ONE, Fp.ZERO);
     const _bits = CURVE.nBitLength;
-    const wnaf = (0, curve_js_1.wNAF)(Point, CURVE.endo ? Math.ceil(_bits / 2) : _bits);
+    const wnaf = wNAF(Point, CURVE.endo ? Math.ceil(_bits / 2) : _bits);
     // Validate if generator point is on curve
     return {
         CURVE,
@@ -528,7 +521,7 @@ function weierstrassPoints(opts) {
     };
 }
 function validateOpts(curve) {
-    const opts = (0, curve_js_1.validateBasic)(curve);
+    const opts = validateBasic(curve);
     ut.validateObject(opts, {
         hash: 'hash',
         hmac: 'function',
@@ -540,7 +533,7 @@ function validateOpts(curve) {
     });
     return Object.freeze({ lowS: true, ...opts });
 }
-function weierstrass(curveDef) {
+export function weierstrass(curveDef) {
     const CURVE = validateOpts(curveDef);
     const { Fp, n: CURVE_ORDER } = CURVE;
     const compressedLen = Fp.BYTES + 1; // e.g. 33 for 32
@@ -625,13 +618,13 @@ function weierstrass(curveDef) {
         // pair (bytes of r, bytes of s)
         static fromCompact(hex) {
             const l = CURVE.nByteLength;
-            hex = (0, utils_js_1.ensureBytes)('compactSignature', hex, l * 2);
+            hex = ensureBytes('compactSignature', hex, l * 2);
             return new Signature(slcNum(hex, 0, l), slcNum(hex, l, 2 * l));
         }
         // DER encoded ECDSA signature
         // https://bitcoin.stackexchange.com/questions/57644/what-are-the-parts-of-a-bitcoin-transaction-input-script
         static fromDER(hex) {
-            const { r, s } = exports.DER.toSig((0, utils_js_1.ensureBytes)('DER', hex));
+            const { r, s } = DER.toSig(ensureBytes('DER', hex));
             return new Signature(r, s);
         }
         assertValidity() {
@@ -646,7 +639,7 @@ function weierstrass(curveDef) {
         }
         recoverPublicKey(msgHash) {
             const { r, s, recovery: rec } = this;
-            const h = bits2int_modN((0, utils_js_1.ensureBytes)('msgHash', msgHash)); // Truncate hash
+            const h = bits2int_modN(ensureBytes('msgHash', msgHash)); // Truncate hash
             if (rec == null || ![0, 1, 2, 3].includes(rec))
                 throw new Error('recovery id invalid');
             const radj = rec === 2 || rec === 3 ? r + CURVE.n : r;
@@ -675,7 +668,7 @@ function weierstrass(curveDef) {
             return ut.hexToBytes(this.toDERHex());
         }
         toDERHex() {
-            return exports.DER.hexFromSig({ r: this.r, s: this.s });
+            return DER.hexFromSig({ r: this.r, s: this.s });
         }
         // padded bytes of r, then padded bytes of s
         toCompactRawBytes() {
@@ -801,9 +794,9 @@ function weierstrass(curveDef) {
         let { lowS, prehash, extraEntropy: ent } = opts; // generates low-s sigs by default
         if (lowS == null)
             lowS = true; // RFC6979 3.2: we skip step A, because we already provide hash
-        msgHash = (0, utils_js_1.ensureBytes)('msgHash', msgHash);
+        msgHash = ensureBytes('msgHash', msgHash);
         if (prehash)
-            msgHash = (0, utils_js_1.ensureBytes)('prehashed msgHash', hash(msgHash));
+            msgHash = ensureBytes('prehashed msgHash', hash(msgHash));
         // We can't later call bits2octets, since nested bits2int is broken for curves
         // with nBitLength % 8 !== 0. Because of that, we unwrap it here as int2octets call.
         // const bits2octets = (bits) => int2octets(bits2int_modN(bits))
@@ -814,7 +807,7 @@ function weierstrass(curveDef) {
         if (ent != null && ent !== false) {
             // K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1) || k')
             const e = ent === true ? randomBytes(Fp.BYTES) : ent; // generate random bytes OR pass as-is
-            seedArgs.push((0, utils_js_1.ensureBytes)('extraEntropy', e)); // check for being bytes
+            seedArgs.push(ensureBytes('extraEntropy', e)); // check for being bytes
         }
         const seed = ut.concatBytes(...seedArgs); // Step D of RFC6979 3.2
         const m = h1int; // NOTE: no need to call bits2int second time here, it is inside truncateHash!
@@ -884,8 +877,8 @@ function weierstrass(curveDef) {
      */
     function verify(signature, msgHash, publicKey, opts = defaultVerOpts) {
         const sg = signature;
-        msgHash = (0, utils_js_1.ensureBytes)('msgHash', msgHash);
-        publicKey = (0, utils_js_1.ensureBytes)('publicKey', publicKey);
+        msgHash = ensureBytes('msgHash', msgHash);
+        publicKey = ensureBytes('publicKey', publicKey);
         if ('strict' in opts)
             throw new Error('options.strict was renamed to lowS');
         const { lowS, prehash } = opts;
@@ -899,7 +892,7 @@ function weierstrass(curveDef) {
                     _sig = Signature.fromDER(sg);
                 }
                 catch (derError) {
-                    if (!(derError instanceof exports.DER.Err))
+                    if (!(derError instanceof DER.Err))
                         throw derError;
                     _sig = Signature.fromCompact(sg);
                 }
@@ -953,7 +946,7 @@ function weierstrass(curveDef) {
  * @param Z
  * @returns
  */
-function SWUFpSqrtRatio(Fp, Z) {
+export function SWUFpSqrtRatio(Fp, Z) {
     // Generic implementation
     const q = Fp.ORDER;
     let l = _0n;
@@ -1026,7 +1019,7 @@ function SWUFpSqrtRatio(Fp, Z) {
  * Simplified Shallue-van de Woestijne-Ulas Method
  * https://www.rfc-editor.org/rfc/rfc9380#section-6.6.2
  */
-function mapToCurveSimpleSWU(Fp, opts) {
+export function mapToCurveSimpleSWU(Fp, opts) {
     mod.validateField(Fp);
     if (!Fp.isValid(opts.A) || !Fp.isValid(opts.B) || !Fp.isValid(opts.Z))
         throw new Error('mapToCurveSimpleSWU: invalid opts');

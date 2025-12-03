@@ -1,19 +1,16 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.twistedEdwards = twistedEdwards;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Twisted Edwards curve. The formula is: ax² + y² = 1 + dx²y²
-const curve_js_1 = require("./curve.js");
-const modular_js_1 = require("./modular.js");
-const ut = require("./utils.js");
-const utils_js_1 = require("./utils.js");
+import { validateBasic, wNAF } from './curve.js';
+import { mod } from './modular.js';
+import * as ut from './utils.js';
+import { ensureBytes } from './utils.js';
 // Be friendly to bad ECMAScript parsers by not using bigint literals
 // prettier-ignore
 const _0n = BigInt(0), _1n = BigInt(1), _2n = BigInt(2), _8n = BigInt(8);
 // verification rule is either zip215 or rfc8032 / nist186-5. Consult fromHex:
 const VERIFY_DEFAULT = { zip215: true };
 function validateOpts(curve) {
-    const opts = (0, curve_js_1.validateBasic)(curve);
+    const opts = validateBasic(curve);
     ut.validateObject(curve, {
         hash: 'function',
         a: 'bigint',
@@ -29,7 +26,7 @@ function validateOpts(curve) {
     return Object.freeze({ ...opts });
 }
 // It is not generic twisted curve for now, but ed25519/ed448 generic implementation
-function twistedEdwards(curveDef) {
+export function twistedEdwards(curveDef) {
     const CURVE = validateOpts(curveDef);
     const { Fp, n: CURVE_ORDER, prehash: prehash, hash: cHash, randomBytes, nByteLength, h: cofactor, } = CURVE;
     const MASK = _2n << (BigInt(nByteLength * 8) - _1n);
@@ -279,7 +276,7 @@ function twistedEdwards(curveDef) {
         static fromHex(hex, zip215 = false) {
             const { d, a } = CURVE;
             const len = Fp.BYTES;
-            hex = (0, utils_js_1.ensureBytes)('pointHex', hex, len); // copy hex to a new array
+            hex = ensureBytes('pointHex', hex, len); // copy hex to a new array
             const normed = hex.slice(); // copy again, we'll manipulate it
             const lastByte = hex[len - 1]; // select last byte
             normed[len - 1] = lastByte & ~0x80; // clear last bit
@@ -327,9 +324,9 @@ function twistedEdwards(curveDef) {
     Point.BASE = new Point(CURVE.Gx, CURVE.Gy, _1n, modP(CURVE.Gx * CURVE.Gy));
     Point.ZERO = new Point(_0n, _1n, _1n, _0n); // 0, 1, 1, 0
     const { BASE: G, ZERO: I } = Point;
-    const wnaf = (0, curve_js_1.wNAF)(Point, nByteLength * 8);
+    const wnaf = wNAF(Point, nByteLength * 8);
     function modN(a) {
-        return (0, modular_js_1.mod)(a, CURVE_ORDER);
+        return mod(a, CURVE_ORDER);
     }
     // Little-endian SHA512 with modulo n
     function modN_LE(hash) {
@@ -338,10 +335,10 @@ function twistedEdwards(curveDef) {
     /** Convenience method that creates public key and other stuff. RFC8032 5.1.5 */
     function getExtendedPublicKey(key) {
         const len = nByteLength;
-        key = (0, utils_js_1.ensureBytes)('private key', key, len);
+        key = ensureBytes('private key', key, len);
         // Hash private key with curve's hash function to produce uniformingly random input
         // Check byte lengths: ensure(64, h(ensure(32, key)))
-        const hashed = (0, utils_js_1.ensureBytes)('hashed private key', cHash(key), 2 * len);
+        const hashed = ensureBytes('hashed private key', cHash(key), 2 * len);
         const head = adjustScalarBytes(hashed.slice(0, len)); // clear first half bits, produce FE
         const prefix = hashed.slice(len, 2 * len); // second half is called key prefix (5.1.6)
         const scalar = modN_LE(head); // The actual private scalar
@@ -356,11 +353,11 @@ function twistedEdwards(curveDef) {
     // int('LE', SHA512(dom2(F, C) || msgs)) mod N
     function hashDomainToScalar(context = new Uint8Array(), ...msgs) {
         const msg = ut.concatBytes(...msgs);
-        return modN_LE(cHash(domain(msg, (0, utils_js_1.ensureBytes)('context', context), !!prehash)));
+        return modN_LE(cHash(domain(msg, ensureBytes('context', context), !!prehash)));
     }
     /** Signs message with privateKey. RFC8032 5.1.6 */
     function sign(msg, privKey, options = {}) {
-        msg = (0, utils_js_1.ensureBytes)('message', msg);
+        msg = ensureBytes('message', msg);
         if (prehash)
             msg = prehash(msg); // for ed25519ph etc.
         const { prefix, scalar, pointBytes } = getExtendedPublicKey(privKey);
@@ -370,14 +367,14 @@ function twistedEdwards(curveDef) {
         const s = modN(r + k * scalar); // S = (r + k * s) mod L
         assertGE0(s); // 0 <= s < l
         const res = ut.concatBytes(R, ut.numberToBytesLE(s, Fp.BYTES));
-        return (0, utils_js_1.ensureBytes)('result', res, nByteLength * 2); // 64-byte signature
+        return ensureBytes('result', res, nByteLength * 2); // 64-byte signature
     }
     const verifyOpts = VERIFY_DEFAULT;
     function verify(sig, msg, publicKey, options = verifyOpts) {
         const { context, zip215 } = options;
         const len = Fp.BYTES; // Verifies EdDSA signature against message and public key. RFC8032 5.1.7.
-        sig = (0, utils_js_1.ensureBytes)('signature', sig, 2 * len); // An extended group equation is checked.
-        msg = (0, utils_js_1.ensureBytes)('message', msg);
+        sig = ensureBytes('signature', sig, 2 * len); // An extended group equation is checked.
+        msg = ensureBytes('message', msg);
         if (prehash)
             msg = prehash(msg); // for ed25519ph, etc
         const s = ut.bytesToNumberLE(sig.slice(len, 2 * len));

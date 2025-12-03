@@ -1,15 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateOpts = validateOpts;
-exports.splitConstants = splitConstants;
-exports.poseidon = poseidon;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Poseidon Hash: https://eprint.iacr.org/2019/458.pdf, https://www.poseidon-hash.info
-const modular_js_1 = require("./modular.js");
-function validateOpts(opts) {
+import { FpPow, validateField } from './modular.js';
+export function validateOpts(opts) {
     const { Fp, mds, reversePartialPowIdx: rev, roundConstants: rc } = opts;
     const { roundsFull, roundsPartial, sboxPower, t } = opts;
-    (0, modular_js_1.validateField)(Fp);
+    validateField(Fp);
     for (const i of ['t', 'roundsFull', 'roundsPartial']) {
         if (typeof opts[i] !== 'number' || !Number.isSafeInteger(opts[i]))
             throw new Error(`Poseidon: invalid param ${i}=${opts[i]} (${typeof opts[i]})`);
@@ -45,7 +40,7 @@ function validateOpts(opts) {
     if (!sboxPower || ![3, 5, 7].includes(sboxPower))
         throw new Error(`Poseidon wrong sboxPower=${sboxPower}`);
     const _sboxPower = BigInt(sboxPower);
-    let sboxFn = (n) => (0, modular_js_1.FpPow)(Fp, n, _sboxPower);
+    let sboxFn = (n) => FpPow(Fp, n, _sboxPower);
     // Unwrapped sbox power for common cases (195->142μs)
     if (sboxPower === 3)
         sboxFn = (n) => Fp.mul(Fp.sqrN(n), n);
@@ -53,7 +48,7 @@ function validateOpts(opts) {
         sboxFn = (n) => Fp.mul(Fp.sqrN(Fp.sqrN(n)), n);
     return Object.freeze({ ...opts, rounds, sboxFn, roundConstants, mds: _mds });
 }
-function splitConstants(rc, t) {
+export function splitConstants(rc, t) {
     if (typeof t !== 'number')
         throw new Error('poseidonSplitConstants: wrong t');
     if (!Array.isArray(rc) || rc.length % t)
@@ -69,7 +64,7 @@ function splitConstants(rc, t) {
     }
     return res;
 }
-function poseidon(opts) {
+export function poseidon(opts) {
     const _opts = validateOpts(opts);
     const { Fp, mds, roundConstants, rounds, roundsPartial, sboxFn, t } = _opts;
     const halfRoundsFull = _opts.roundsFull / 2;

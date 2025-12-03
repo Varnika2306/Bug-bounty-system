@@ -1,26 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.bitMask = void 0;
-exports.isBytes = isBytes;
-exports.abytes = abytes;
-exports.bytesToHex = bytesToHex;
-exports.numberToHexUnpadded = numberToHexUnpadded;
-exports.hexToNumber = hexToNumber;
-exports.hexToBytes = hexToBytes;
-exports.bytesToNumberBE = bytesToNumberBE;
-exports.bytesToNumberLE = bytesToNumberLE;
-exports.numberToBytesBE = numberToBytesBE;
-exports.numberToBytesLE = numberToBytesLE;
-exports.numberToVarBytesBE = numberToVarBytesBE;
-exports.ensureBytes = ensureBytes;
-exports.concatBytes = concatBytes;
-exports.equalBytes = equalBytes;
-exports.utf8ToBytes = utf8ToBytes;
-exports.bitLen = bitLen;
-exports.bitGet = bitGet;
-exports.bitSet = bitSet;
-exports.createHmacDrbg = createHmacDrbg;
-exports.validateObject = validateObject;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // 100 lines of code in the file are duplicated from noble-hashes (utils).
 // This is OK: `abstract` directory does not use noble-hashes.
@@ -29,11 +6,11 @@ exports.validateObject = validateObject;
 const _0n = /* @__PURE__ */ BigInt(0);
 const _1n = /* @__PURE__ */ BigInt(1);
 const _2n = /* @__PURE__ */ BigInt(2);
-function isBytes(a) {
+export function isBytes(a) {
     return (a instanceof Uint8Array ||
         (a != null && typeof a === 'object' && a.constructor.name === 'Uint8Array'));
 }
-function abytes(item) {
+export function abytes(item) {
     if (!isBytes(item))
         throw new Error('Uint8Array expected');
 }
@@ -42,7 +19,7 @@ const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(1
 /**
  * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
  */
-function bytesToHex(bytes) {
+export function bytesToHex(bytes) {
     abytes(bytes);
     // pre-caching improves the speed 6x
     let hex = '';
@@ -51,11 +28,11 @@ function bytesToHex(bytes) {
     }
     return hex;
 }
-function numberToHexUnpadded(num) {
+export function numberToHexUnpadded(num) {
     const hex = num.toString(16);
     return hex.length & 1 ? `0${hex}` : hex;
 }
-function hexToNumber(hex) {
+export function hexToNumber(hex) {
     if (typeof hex !== 'string')
         throw new Error('hex string expected, got ' + typeof hex);
     // Big Endian
@@ -75,7 +52,7 @@ function asciiToBase16(char) {
 /**
  * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
  */
-function hexToBytes(hex) {
+export function hexToBytes(hex) {
     if (typeof hex !== 'string')
         throw new Error('hex string expected, got ' + typeof hex);
     const hl = hex.length;
@@ -95,21 +72,21 @@ function hexToBytes(hex) {
     return array;
 }
 // BE: Big Endian, LE: Little Endian
-function bytesToNumberBE(bytes) {
+export function bytesToNumberBE(bytes) {
     return hexToNumber(bytesToHex(bytes));
 }
-function bytesToNumberLE(bytes) {
+export function bytesToNumberLE(bytes) {
     abytes(bytes);
     return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
 }
-function numberToBytesBE(n, len) {
+export function numberToBytesBE(n, len) {
     return hexToBytes(n.toString(16).padStart(len * 2, '0'));
 }
-function numberToBytesLE(n, len) {
+export function numberToBytesLE(n, len) {
     return numberToBytesBE(n, len).reverse();
 }
 // Unpadded, rarely used
-function numberToVarBytesBE(n) {
+export function numberToVarBytesBE(n) {
     return hexToBytes(numberToHexUnpadded(n));
 }
 /**
@@ -121,7 +98,7 @@ function numberToVarBytesBE(n) {
  * @param expectedLength optional, will compare to result array's length
  * @returns
  */
-function ensureBytes(title, hex, expectedLength) {
+export function ensureBytes(title, hex, expectedLength) {
     let res;
     if (typeof hex === 'string') {
         try {
@@ -147,7 +124,7 @@ function ensureBytes(title, hex, expectedLength) {
 /**
  * Copies several Uint8Arrays into one.
  */
-function concatBytes(...arrays) {
+export function concatBytes(...arrays) {
     let sum = 0;
     for (let i = 0; i < arrays.length; i++) {
         const a = arrays[i];
@@ -163,7 +140,7 @@ function concatBytes(...arrays) {
     return res;
 }
 // Compares 2 u8a-s in kinda constant time
-function equalBytes(a, b) {
+export function equalBytes(a, b) {
     if (a.length !== b.length)
         return false;
     let diff = 0;
@@ -174,7 +151,7 @@ function equalBytes(a, b) {
 /**
  * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])
  */
-function utf8ToBytes(str) {
+export function utf8ToBytes(str) {
     if (typeof str !== 'string')
         throw new Error(`utf8ToBytes expected string, got ${typeof str}`);
     return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809
@@ -184,7 +161,7 @@ function utf8ToBytes(str) {
  * Calculates amount of bits in a bigint.
  * Same as `n.toString(2).length`
  */
-function bitLen(n) {
+export function bitLen(n) {
     let len;
     for (len = 0; n > _0n; n >>= _1n, len += 1)
         ;
@@ -195,21 +172,20 @@ function bitLen(n) {
  * NOTE: first bit position is 0 (same as arrays)
  * Same as `!!+Array.from(n.toString(2)).reverse()[pos]`
  */
-function bitGet(n, pos) {
+export function bitGet(n, pos) {
     return (n >> BigInt(pos)) & _1n;
 }
 /**
  * Sets single bit at position.
  */
-function bitSet(n, pos, value) {
+export function bitSet(n, pos, value) {
     return n | ((value ? _1n : _0n) << BigInt(pos));
 }
 /**
  * Calculate mask for N bits. Not using ** operator with bigints because of old engines.
  * Same as BigInt(`0b${Array(i).fill('1').join('')}`)
  */
-const bitMask = (n) => (_2n << BigInt(n - 1)) - _1n;
-exports.bitMask = bitMask;
+export const bitMask = (n) => (_2n << BigInt(n - 1)) - _1n;
 // DRBG
 const u8n = (data) => new Uint8Array(data); // creates Uint8Array
 const u8fr = (arr) => Uint8Array.from(arr); // another shortcut
@@ -220,7 +196,7 @@ const u8fr = (arr) => Uint8Array.from(arr); // another shortcut
  *   const drbg = createHmacDRBG<Key>(32, 32, hmac);
  *   drbg(seed, bytesToKey); // bytesToKey must return Key or undefined
  */
-function createHmacDrbg(hashLen, qByteLen, hmacFn) {
+export function createHmacDrbg(hashLen, qByteLen, hmacFn) {
     if (typeof hashLen !== 'number' || hashLen < 2)
         throw new Error('hashLen must be a number');
     if (typeof qByteLen !== 'number' || qByteLen < 2)
@@ -284,7 +260,7 @@ const validatorFns = {
     hash: (val) => typeof val === 'function' && Number.isSafeInteger(val.outputLen),
 };
 // type Record<K extends string | number | symbol, T> = { [P in K]: T; }
-function validateObject(object, validators, optValidators = {}) {
+export function validateObject(object, validators, optValidators = {}) {
     const checkField = (fieldName, type, isOptional) => {
         const checkVal = validatorFns[type];
         if (typeof checkVal !== 'function')

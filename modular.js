@@ -1,28 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isNegativeLE = void 0;
-exports.mod = mod;
-exports.pow = pow;
-exports.pow2 = pow2;
-exports.invert = invert;
-exports.tonelliShanks = tonelliShanks;
-exports.FpSqrt = FpSqrt;
-exports.validateField = validateField;
-exports.FpPow = FpPow;
-exports.FpInvertBatch = FpInvertBatch;
-exports.FpDiv = FpDiv;
-exports.FpIsSquare = FpIsSquare;
-exports.nLength = nLength;
-exports.Field = Field;
-exports.FpSqrtOdd = FpSqrtOdd;
-exports.FpSqrtEven = FpSqrtEven;
-exports.hashToPrivateScalar = hashToPrivateScalar;
-exports.getFieldBytesLength = getFieldBytesLength;
-exports.getMinHashLength = getMinHashLength;
-exports.mapHashToField = mapHashToField;
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 // Utilities for modular arithmetics and finite fields
-const utils_js_1 = require("./utils.js");
+import { bitMask, bytesToNumberBE, bytesToNumberLE, ensureBytes, numberToBytesBE, numberToBytesLE, validateObject, } from './utils.js';
 // prettier-ignore
 const _0n = BigInt(0), _1n = BigInt(1), _2n = BigInt(2), _3n = BigInt(3);
 // prettier-ignore
@@ -30,7 +8,7 @@ const _4n = BigInt(4), _5n = BigInt(5), _8n = BigInt(8);
 // prettier-ignore
 const _9n = BigInt(9), _16n = BigInt(16);
 // Calculates a modulo b
-function mod(a, b) {
+export function mod(a, b) {
     const result = a % b;
     return result >= _0n ? result : b + result;
 }
@@ -41,7 +19,7 @@ function mod(a, b) {
  * pow(2n, 6n, 11n) // 64n % 11n == 9n
  */
 // TODO: use field version && remove
-function pow(num, power, modulo) {
+export function pow(num, power, modulo) {
     if (modulo <= _0n || power < _0n)
         throw new Error('Expected power/modulo > 0');
     if (modulo === _1n)
@@ -56,7 +34,7 @@ function pow(num, power, modulo) {
     return res;
 }
 // Does x ^ (2 ^ power) mod p. pow2(30, 4) == 30 ^ (2 ^ 4)
-function pow2(x, power, modulo) {
+export function pow2(x, power, modulo) {
     let res = x;
     while (power-- > _0n) {
         res *= res;
@@ -65,7 +43,7 @@ function pow2(x, power, modulo) {
     return res;
 }
 // Inverses number over modulo
-function invert(number, modulo) {
+export function invert(number, modulo) {
     if (number === _0n || modulo <= _0n) {
         throw new Error(`invert: expected positive integers, got n=${number} mod=${modulo}`);
     }
@@ -97,7 +75,7 @@ function invert(number, modulo) {
  * @param P field order
  * @returns function that takes field Fp (created from P) and number n
  */
-function tonelliShanks(P) {
+export function tonelliShanks(P) {
     // Legendre constant: used to calculate Legendre symbol (a | p),
     // which denotes the value of a^((p-1)/2) (mod p).
     // (a | p) ≡ 1    if a is a square (mod p)
@@ -153,7 +131,7 @@ function tonelliShanks(P) {
         return x;
     };
 }
-function FpSqrt(P) {
+export function FpSqrt(P) {
     // NOTE: different algorithms can give different roots, it is up to user to decide which one they want.
     // For example there is FpSqrtOdd/FpSqrtEven to choice root based on oddness (used for hash-to-curve).
     // P ≡ 3 (mod 4)
@@ -212,15 +190,14 @@ function FpSqrt(P) {
     return tonelliShanks(P);
 }
 // Little-endian check for first LE bit (last BE bit);
-const isNegativeLE = (num, modulo) => (mod(num, modulo) & _1n) === _1n;
-exports.isNegativeLE = isNegativeLE;
+export const isNegativeLE = (num, modulo) => (mod(num, modulo) & _1n) === _1n;
 // prettier-ignore
 const FIELD_FIELDS = [
     'create', 'isValid', 'is0', 'neg', 'inv', 'sqrt', 'sqr',
     'eql', 'add', 'sub', 'mul', 'pow', 'div',
     'addN', 'subN', 'mulN', 'sqrN'
 ];
-function validateField(field) {
+export function validateField(field) {
     const initial = {
         ORDER: 'bigint',
         MASK: 'bigint',
@@ -231,14 +208,14 @@ function validateField(field) {
         map[val] = 'function';
         return map;
     }, initial);
-    return (0, utils_js_1.validateObject)(field, opts);
+    return validateObject(field, opts);
 }
 // Generic field functions
 /**
  * Same as `pow` but for Fp: non-constant-time.
  * Unsafe in some contexts: uses ladder, so can expose bigint bits.
  */
-function FpPow(f, num, power) {
+export function FpPow(f, num, power) {
     // Should have same speed as pow for bigints
     // TODO: benchmark!
     if (power < _0n)
@@ -261,7 +238,7 @@ function FpPow(f, num, power) {
  * Efficiently invert an array of Field elements.
  * `inv(0)` will return `undefined` here: make sure to throw an error.
  */
-function FpInvertBatch(f, nums) {
+export function FpInvertBatch(f, nums) {
     const tmp = new Array(nums.length);
     // Walk from first to last, multiply them by each other MOD p
     const lastMultiplied = nums.reduce((acc, num, i) => {
@@ -281,11 +258,11 @@ function FpInvertBatch(f, nums) {
     }, inverted);
     return tmp;
 }
-function FpDiv(f, lhs, rhs) {
+export function FpDiv(f, lhs, rhs) {
     return f.mul(lhs, typeof rhs === 'bigint' ? invert(rhs, f.ORDER) : f.inv(rhs));
 }
 // This function returns True whenever the value x is a square in the field F.
-function FpIsSquare(f) {
+export function FpIsSquare(f) {
     const legendreConst = (f.ORDER - _1n) / _2n; // Integer arithmetic
     return (x) => {
         const p = f.pow(x, legendreConst);
@@ -293,7 +270,7 @@ function FpIsSquare(f) {
     };
 }
 // CURVE.n lengths
-function nLength(n, nBitLength) {
+export function nLength(n, nBitLength) {
     // Bit size, byte size of CURVE.n
     const _nBitLength = nBitLength !== undefined ? nBitLength : n.toString(2).length;
     const nByteLength = Math.ceil(_nBitLength / 8);
@@ -311,7 +288,7 @@ function nLength(n, nBitLength) {
  * @param isLE (def: false) if encoding / decoding should be in little-endian
  * @param redef optional faster redefinitions of sqrt and other methods
  */
-function Field(ORDER, bitLen, isLE = false, redef = {}) {
+export function Field(ORDER, bitLen, isLE = false, redef = {}) {
     if (ORDER <= _0n)
         throw new Error(`Expected Field ORDER > 0, got ${ORDER}`);
     const { nBitLength: BITS, nByteLength: BYTES } = nLength(ORDER, bitLen);
@@ -322,7 +299,7 @@ function Field(ORDER, bitLen, isLE = false, redef = {}) {
         ORDER,
         BITS,
         BYTES,
-        MASK: (0, utils_js_1.bitMask)(BITS),
+        MASK: bitMask(BITS),
         ZERO: _0n,
         ONE: _1n,
         create: (num) => mod(num, ORDER),
@@ -352,22 +329,22 @@ function Field(ORDER, bitLen, isLE = false, redef = {}) {
         // TODO: do we really need constant cmov?
         // We don't have const-time bigints anyway, so probably will be not very useful
         cmov: (a, b, c) => (c ? b : a),
-        toBytes: (num) => (isLE ? (0, utils_js_1.numberToBytesLE)(num, BYTES) : (0, utils_js_1.numberToBytesBE)(num, BYTES)),
+        toBytes: (num) => (isLE ? numberToBytesLE(num, BYTES) : numberToBytesBE(num, BYTES)),
         fromBytes: (bytes) => {
             if (bytes.length !== BYTES)
                 throw new Error(`Fp.fromBytes: expected ${BYTES}, got ${bytes.length}`);
-            return isLE ? (0, utils_js_1.bytesToNumberLE)(bytes) : (0, utils_js_1.bytesToNumberBE)(bytes);
+            return isLE ? bytesToNumberLE(bytes) : bytesToNumberBE(bytes);
         },
     });
     return Object.freeze(f);
 }
-function FpSqrtOdd(Fp, elm) {
+export function FpSqrtOdd(Fp, elm) {
     if (!Fp.isOdd)
         throw new Error(`Field doesn't have isOdd`);
     const root = Fp.sqrt(elm);
     return Fp.isOdd(root) ? root : Fp.neg(root);
 }
-function FpSqrtEven(Fp, elm) {
+export function FpSqrtEven(Fp, elm) {
     if (!Fp.isOdd)
         throw new Error(`Field doesn't have isOdd`);
     const root = Fp.sqrt(elm);
@@ -379,13 +356,13 @@ function FpSqrtEven(Fp, elm) {
  * Which makes it slightly more biased, less secure.
  * @deprecated use mapKeyToField instead
  */
-function hashToPrivateScalar(hash, groupOrder, isLE = false) {
-    hash = (0, utils_js_1.ensureBytes)('privateHash', hash);
+export function hashToPrivateScalar(hash, groupOrder, isLE = false) {
+    hash = ensureBytes('privateHash', hash);
     const hashLen = hash.length;
     const minLen = nLength(groupOrder).nByteLength + 8;
     if (minLen < 24 || hashLen < minLen || hashLen > 1024)
         throw new Error(`hashToPrivateScalar: expected ${minLen}-1024 bytes of input, got ${hashLen}`);
-    const num = isLE ? (0, utils_js_1.bytesToNumberLE)(hash) : (0, utils_js_1.bytesToNumberBE)(hash);
+    const num = isLE ? bytesToNumberLE(hash) : bytesToNumberBE(hash);
     return mod(num, groupOrder - _1n) + _1n;
 }
 /**
@@ -394,7 +371,7 @@ function hashToPrivateScalar(hash, groupOrder, isLE = false) {
  * @param fieldOrder number of field elements, usually CURVE.n
  * @returns byte length of field
  */
-function getFieldBytesLength(fieldOrder) {
+export function getFieldBytesLength(fieldOrder) {
     if (typeof fieldOrder !== 'bigint')
         throw new Error('field order must be bigint');
     const bitLength = fieldOrder.toString(2).length;
@@ -407,7 +384,7 @@ function getFieldBytesLength(fieldOrder) {
  * @param fieldOrder number of field elements, usually CURVE.n
  * @returns byte length of target hash
  */
-function getMinHashLength(fieldOrder) {
+export function getMinHashLength(fieldOrder) {
     const length = getFieldBytesLength(fieldOrder);
     return length + Math.ceil(length / 2);
 }
@@ -424,16 +401,16 @@ function getMinHashLength(fieldOrder) {
  * @param isLE interpret hash bytes as LE num
  * @returns valid private scalar
  */
-function mapHashToField(key, fieldOrder, isLE = false) {
+export function mapHashToField(key, fieldOrder, isLE = false) {
     const len = key.length;
     const fieldLen = getFieldBytesLength(fieldOrder);
     const minLen = getMinHashLength(fieldOrder);
     // No small numbers: need to understand bias story. No huge numbers: easier to detect JS timings.
     if (len < 16 || len < minLen || len > 1024)
         throw new Error(`expected ${minLen}-1024 bytes of input, got ${len}`);
-    const num = isLE ? (0, utils_js_1.bytesToNumberBE)(key) : (0, utils_js_1.bytesToNumberLE)(key);
+    const num = isLE ? bytesToNumberBE(key) : bytesToNumberLE(key);
     // `mod(x, 11)` can sometimes produce 0. `mod(x, 10) + 1` is the same, but no 0
     const reduced = mod(num, fieldOrder - _1n) + _1n;
-    return isLE ? (0, utils_js_1.numberToBytesLE)(reduced, fieldLen) : (0, utils_js_1.numberToBytesBE)(reduced, fieldLen);
+    return isLE ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
 }
 //# sourceMappingURL=modular.js.map

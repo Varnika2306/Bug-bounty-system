@@ -1,17 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.bls = bls;
-const modular_js_1 = require("./modular.js");
-const utils_js_1 = require("./utils.js");
+import { getMinHashLength, mapHashToField } from './modular.js';
+import { bitLen, bitGet, ensureBytes } from './utils.js';
 // prettier-ignore
-const hash_to_curve_js_1 = require("./hash-to-curve.js");
-const weierstrass_js_1 = require("./weierstrass.js");
+import { createHasher } from './hash-to-curve.js';
+import { weierstrassPoints, } from './weierstrass.js';
 // prettier-ignore
 const _2n = BigInt(2), _3n = BigInt(3);
-function bls(CURVE) {
+export function bls(CURVE) {
     // Fields are specific for curve, so for now we'll need to pass them with opts
     const { Fp, Fr, Fp2, Fp6, Fp12 } = CURVE.fields;
-    const BLS_X_LEN = (0, utils_js_1.bitLen)(CURVE.params.x);
+    const BLS_X_LEN = bitLen(CURVE.params.x);
     // Pre-compute coefficients for sparse multiplication
     // Point addition and point double calculations is reused for coefficients
     function calcPairingPrecomputes(p) {
@@ -36,7 +33,7 @@ function bls(CURVE) {
             Rx = Fp2.div(Fp2.mul(Fp2.mul(Fp2.sub(t0, t3), Rx), Ry), _2n); // ((T0 - T3) * Rx * Ry) / 2
             Ry = Fp2.sub(Fp2.sqr(Fp2.div(Fp2.add(t0, t3), _2n)), Fp2.mul(Fp2.sqr(t2), _3n)); // ((T0 + T3) / 2)² - 3 * T2²
             Rz = Fp2.mul(t0, t4); // T0 * T4
-            if ((0, utils_js_1.bitGet)(CURVE.params.x, i)) {
+            if (bitGet(CURVE.params.x, i)) {
                 // Addition
                 let t0 = Fp2.sub(Ry, Fp2.mul(Qy, Rz)); // Ry - Qy * Rz
                 let t1 = Fp2.sub(Rx, Fp2.mul(Qx, Rz)); // Rx - Qx * Rz
@@ -64,7 +61,7 @@ function bls(CURVE) {
         for (let j = 0, i = BLS_X_LEN - 2; i >= 0; i--, j++) {
             const E = ell[j];
             f12 = Fp12.multiplyBy014(f12, E[0], Fp2.mul(E[1], Px), Fp2.mul(E[2], Py));
-            if ((0, utils_js_1.bitGet)(x, i)) {
+            if (bitGet(x, i)) {
                 j += 1;
                 const F = ell[j];
                 f12 = Fp12.multiplyBy014(f12, F[0], Fp2.mul(F[1], Px), Fp2.mul(F[2], Py));
@@ -76,14 +73,14 @@ function bls(CURVE) {
     }
     const utils = {
         randomPrivateKey: () => {
-            const length = (0, modular_js_1.getMinHashLength)(Fr.ORDER);
-            return (0, modular_js_1.mapHashToField)(CURVE.randomBytes(length), Fr.ORDER);
+            const length = getMinHashLength(Fr.ORDER);
+            return mapHashToField(CURVE.randomBytes(length), Fr.ORDER);
         },
         calcPairingPrecomputes,
     };
     // Point on G1 curve: (x, y)
-    const G1_ = (0, weierstrass_js_1.weierstrassPoints)({ n: Fr.ORDER, ...CURVE.G1 });
-    const G1 = Object.assign(G1_, (0, hash_to_curve_js_1.createHasher)(G1_.ProjectivePoint, CURVE.G1.mapToCurve, {
+    const G1_ = weierstrassPoints({ n: Fr.ORDER, ...CURVE.G1 });
+    const G1 = Object.assign(G1_, createHasher(G1_.ProjectivePoint, CURVE.G1.mapToCurve, {
         ...CURVE.htfDefaults,
         ...CURVE.G1.htfDefaults,
     }));
@@ -100,8 +97,8 @@ function bls(CURVE) {
     //   p._PPRECOMPUTES = undefined;
     // }
     // Point on G2 curve (complex numbers): (x₁, x₂+i), (y₁, y₂+i)
-    const G2_ = (0, weierstrass_js_1.weierstrassPoints)({ n: Fr.ORDER, ...CURVE.G2 });
-    const G2 = Object.assign(G2_, (0, hash_to_curve_js_1.createHasher)(G2_.ProjectivePoint, CURVE.G2.mapToCurve, {
+    const G2_ = weierstrassPoints({ n: Fr.ORDER, ...CURVE.G2 });
+    const G2 = Object.assign(G2_, createHasher(G2_.ProjectivePoint, CURVE.G2.mapToCurve, {
         ...CURVE.htfDefaults,
         ...CURVE.G2.htfDefaults,
     }));
@@ -124,7 +121,7 @@ function bls(CURVE) {
     function normP1Hash(point, htfOpts) {
         return point instanceof G1.ProjectivePoint
             ? point
-            : G1.hashToCurve((0, utils_js_1.ensureBytes)('point', point), htfOpts);
+            : G1.hashToCurve(ensureBytes('point', point), htfOpts);
     }
     function normP2(point) {
         return point instanceof G2.ProjectivePoint ? point : Signature.fromHex(point);
@@ -132,7 +129,7 @@ function bls(CURVE) {
     function normP2Hash(point, htfOpts) {
         return point instanceof G2.ProjectivePoint
             ? point
-            : G2.hashToCurve((0, utils_js_1.ensureBytes)('point', point), htfOpts);
+            : G2.hashToCurve(ensureBytes('point', point), htfOpts);
     }
     // Multiplies generator (G1) by private key.
     // P = pk x G
