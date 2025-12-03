@@ -1,302 +1,202 @@
-[![view on npm](http://img.shields.io/npm/v/typical.svg)](https://www.npmjs.org/package/typical)
-[![npm module downloads](http://img.shields.io/npm/dt/typical.svg)](https://www.npmjs.org/package/typical)
-[![Build Status](https://travis-ci.org/75lb/typical.svg?branch=master)](https://travis-ci.org/75lb/typical)
-[![Coverage Status](https://coveralls.io/repos/github/75lb/typical/badge.svg?branch=master)](https://coveralls.io/github/75lb/typical?branch=master)
-[![Dependency Status](https://badgen.net/david/dep/75lb/typical)](https://david-dm.org/75lb/typical)
-[![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg)](https://github.com/feross/standard)
+<p align="center">
+  <img width="250" src="https://raw.githubusercontent.com/yargs/yargs/master/yargs-logo.png">
+</p>
+<h1 align="center"> Yargs </h1>
+<p align="center">
+  <b >Yargs be a node.js library fer hearties tryin' ter parse optstrings</b>
+</p>
 
-<a name="module_typical"></a>
+<br>
 
-## typical
-Isomorphic, functional type-checking for Javascript.
+![ci](https://github.com/yargs/yargs/workflows/ci/badge.svg)
+[![NPM version][npm-image]][npm-url]
+[![js-standard-style][standard-image]][standard-url]
+[![Coverage][coverage-image]][coverage-url]
+[![Conventional Commits][conventional-commits-image]][conventional-commits-url]
+[![Slack][slack-image]][slack-url]
 
-**Example**  
-```js
-const t = require('typical')
-const allDefined = array.every(t.isDefined)
+## Description
+Yargs helps you build interactive command line tools, by parsing arguments and generating an elegant user interface.
+
+It gives you:
+
+* commands and (grouped) options (`my-program.js serve --port=5000`).
+* a dynamically generated help menu based on your arguments:
+
+```
+mocha [spec..]
+
+Run tests with Mocha
+
+Commands
+  mocha inspect [spec..]  Run tests with Mocha                         [default]
+  mocha init <path>       create a client-side Mocha setup at <path>
+
+Rules & Behavior
+  --allow-uncaught           Allow uncaught errors to propagate        [boolean]
+  --async-only, -A           Require all tests to use a callback (async) or
+                             return a Promise                          [boolean]
 ```
 
-* [typical](#module_typical)
-    * [.isNumber(n)](#module_typical.isNumber) ⇒ <code>boolean</code>
-    * [.isPlainObject(input)](#module_typical.isPlainObject) ⇒ <code>boolean</code>
-    * [.isArrayLike(input)](#module_typical.isArrayLike) ⇒ <code>boolean</code>
-    * [.isObject(input)](#module_typical.isObject) ⇒ <code>boolean</code>
-    * [.isDefined(input)](#module_typical.isDefined) ⇒ <code>boolean</code>
-    * [.isUndefined(input)](#module_typical.isUndefined) ⇒ <code>boolean</code>
-    * [.isNull(input)](#module_typical.isNull) ⇒ <code>boolean</code>
-    * [.isDefinedValue(input)](#module_typical.isDefinedValue) ⇒ <code>boolean</code>
-    * [.isClass(input)](#module_typical.isClass) ⇒ <code>boolean</code>
-    * [.isPrimitive(input)](#module_typical.isPrimitive) ⇒ <code>boolean</code>
-    * [.isPromise(input)](#module_typical.isPromise) ⇒ <code>boolean</code>
-    * [.isIterable(input)](#module_typical.isIterable) ⇒ <code>boolean</code>
-    * [.isString(input)](#module_typical.isString) ⇒ <code>boolean</code>
-    * [.isFunction(input)](#module_typical.isFunction) ⇒ <code>boolean</code>
+* bash-completion shortcuts for commands and options.
+* and [tons more](/docs/api.md).
 
-<a name="module_typical.isNumber"></a>
+## Installation
 
-### t.isNumber(n) ⇒ <code>boolean</code>
-Returns true if input is a number. It is a more reasonable alternative to `typeof n` which returns `number` for `NaN` and `Infinity`.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| n | <code>\*</code> | the input to test |
-
-**Example**  
-```js
-> t.isNumber(0)
-true
-> t.isNumber(1)
-true
-> t.isNumber(1.1)
-true
-> t.isNumber(0xff)
-true
-> t.isNumber(0644)
-true
-> t.isNumber(6.2e5)
-true
-> t.isNumber(NaN)
-false
-> t.isNumber(Infinity)
-false
+Stable version:
+```bash
+npm i yargs
 ```
-<a name="module_typical.isPlainObject"></a>
 
-### t.isPlainObject(input) ⇒ <code>boolean</code>
-A plain object is a simple object literal, it is not an instance of a class. Returns true if the input `typeof` is `object` and directly decends from `Object`.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-**Example**  
-```js
-> t.isPlainObject({ something: 'one' })
-true
-> t.isPlainObject(new Date())
-false
-> t.isPlainObject([ 0, 1 ])
-false
-> t.isPlainObject(/test/)
-false
-> t.isPlainObject(1)
-false
-> t.isPlainObject('one')
-false
-> t.isPlainObject(null)
-false
-> t.isPlainObject((function * () {})())
-false
-> t.isPlainObject(function * () {})
-false
+Bleeding edge version with the most recent features:
+```bash
+npm i yargs@next
 ```
-<a name="module_typical.isArrayLike"></a>
 
-### t.isArrayLike(input) ⇒ <code>boolean</code>
-An array-like value has all the properties of an array yet is not an array instance. An example is the `arguments` object. Returns `true`` if the input value is an object, not `null`` and has a `length` property set with a numeric value.
+## Usage
 
-**Kind**: static method of [<code>typical</code>](#module_typical)  
+### Simple Example
 
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
+```javascript
+#!/usr/bin/env node
+const yargs = require('yargs/yargs')
+const { hideBin } = require('yargs/helpers')
+const argv = yargs(hideBin(process.argv)).argv
 
-**Example**  
-```js
-function sum(x, y){
-  console.log(t.isArrayLike(arguments))
-  // prints `true`
+if (argv.ships > 3 && argv.distance < 53.5) {
+  console.log('Plunder more riffiwobbles!')
+} else {
+  console.log('Retreat from the xupptumblers!')
 }
 ```
-<a name="module_typical.isObject"></a>
 
-### t.isObject(input) ⇒ <code>boolean</code>
-Returns true if the typeof input is `'object'` but not null.
+```bash
+$ ./plunder.js --ships=4 --distance=22
+Plunder more riffiwobbles!
 
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isDefined"></a>
-
-### t.isDefined(input) ⇒ <code>boolean</code>
-Returns true if the input value is defined.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isUndefined"></a>
-
-### t.isUndefined(input) ⇒ <code>boolean</code>
-Returns true if the input value is undefined.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isNull"></a>
-
-### t.isNull(input) ⇒ <code>boolean</code>
-Returns true if the input value is null.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isDefinedValue"></a>
-
-### t.isDefinedValue(input) ⇒ <code>boolean</code>
-Returns true if the input value is not one of `undefined`, `null`, or `NaN`.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isClass"></a>
-
-### t.isClass(input) ⇒ <code>boolean</code>
-Returns true if the input value is an ES2015 `class`.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isPrimitive"></a>
-
-### t.isPrimitive(input) ⇒ <code>boolean</code>
-Returns true if the input is a string, number, symbol, boolean, null or undefined value.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isPromise"></a>
-
-### t.isPromise(input) ⇒ <code>boolean</code>
-Returns true if the input is a Promise.
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-<a name="module_typical.isIterable"></a>
-
-### t.isIterable(input) ⇒ <code>boolean</code>
-Returns true if the input is an iterable (`Map`, `Set`, `Array`, Generator etc.).
-
-**Kind**: static method of [<code>typical</code>](#module_typical)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
-
-**Example**  
-```js
-> t.isIterable('string')
-true
-> t.isIterable(new Map())
-true
-> t.isIterable([])
-true
-> t.isIterable((function * () {})())
-true
-> t.isIterable(Promise.resolve())
-false
-> t.isIterable(Promise)
-false
-> t.isIterable(true)
-false
-> t.isIterable({})
-false
-> t.isIterable(0)
-false
-> t.isIterable(1.1)
-false
-> t.isIterable(NaN)
-false
-> t.isIterable(Infinity)
-false
-> t.isIterable(function () {})
-false
-> t.isIterable(Date)
-false
-> t.isIterable()
-false
-> t.isIterable({ then: function () {} })
-false
+$ ./plunder.js --ships 12 --distance 98.7
+Retreat from the xupptumblers!
 ```
-<a name="module_typical.isString"></a>
 
-### t.isString(input) ⇒ <code>boolean</code>
-Returns true if the input value is a string. The equivalent of `typeof input === 'string'` for use in funcitonal contexts.
+### Complex Example
 
-**Kind**: static method of [<code>typical</code>](#module_typical)  
+```javascript
+#!/usr/bin/env node
+const yargs = require('yargs/yargs')
+const { hideBin } = require('yargs/helpers')
 
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
+yargs(hideBin(process.argv))
+  .command('serve [port]', 'start the server', (yargs) => {
+    yargs
+      .positional('port', {
+        describe: 'port to bind on',
+        default: 5000
+      })
+  }, (argv) => {
+    if (argv.verbose) console.info(`start server on :${argv.port}`)
+    serve(argv.port)
+  })
+  .option('verbose', {
+    alias: 'v',
+    type: 'boolean',
+    description: 'Run with verbose logging'
+  })
+  .argv
+```
 
-<a name="module_typical.isFunction"></a>
+Run the example above with `--help` to see the help for the application.
 
-### t.isFunction(input) ⇒ <code>boolean</code>
-Returns true if the input value is a function. The equivalent of `typeof input === 'function'` for use in funcitonal contexts.
+## Supported Platforms
 
-**Kind**: static method of [<code>typical</code>](#module_typical)  
+### TypeScript
 
-| Param | Type | Description |
-| --- | --- | --- |
-| input | <code>\*</code> | the input to test |
+yargs has type definitions at [@types/yargs][type-definitions].
 
+```
+npm i @types/yargs --save-dev
+```
 
-## Load anywhere
+See usage examples in [docs](/docs/typescript.md).
 
-This library is compatible with Node.js, the Web and any style of module loader. It can be loaded anywhere, natively without transpilation.
+### Deno
 
-Node.js:
+As of `v16`, `yargs` supports [Deno](https://github.com/denoland/deno):
+
+```typescript
+import yargs from 'https://deno.land/x/yargs/deno.ts'
+import { Arguments } from 'https://deno.land/x/yargs/deno-types.ts'
+
+yargs(Deno.args)
+  .command('download <files...>', 'download a list of files', (yargs: any) => {
+    return yargs.positional('files', {
+      describe: 'a list of files to do something with'
+    })
+  }, (argv: Arguments) => {
+    console.info(argv)
+  })
+  .strictCommands()
+  .demandCommand(1)
+  .argv
+```
+
+### ESM
+
+As of `v16`,`yargs` supports ESM imports:
 
 ```js
-const typical = require('typical')
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
+
+yargs(hideBin(process.argv))
+  .command('curl <url>', 'fetch the contents of the URL', () => {}, (argv) => {
+    console.info(argv)
+  })
+  .demandCommand(1)
+  .argv
 ```
 
-Within Node.js with ECMAScript Module support enabled:
+### Usage in Browser
 
-```js
-import typical from 'typical'
-```
+See examples of using yargs in the browser in [docs](/docs/browser.md).
 
-Within a modern browser ECMAScript Module:
+## Community
 
-```js
-import typical from './node_modules/typical/index.mjs'
-```
+Having problems? want to contribute? join our [community slack](http://devtoolscommunity.herokuapp.com).
 
-Old browser (adds `window.typical`):
+## Documentation
 
-```html
-<script nomodule src="./node_modules/typical/dist/index.js"></script>
-```
+### Table of Contents
 
-* * *
+* [Yargs' API](/docs/api.md)
+* [Examples](/docs/examples.md)
+* [Parsing Tricks](/docs/tricks.md)
+  * [Stop the Parser](/docs/tricks.md#stop)
+  * [Negating Boolean Arguments](/docs/tricks.md#negate)
+  * [Numbers](/docs/tricks.md#numbers)
+  * [Arrays](/docs/tricks.md#arrays)
+  * [Objects](/docs/tricks.md#objects)
+  * [Quotes](/docs/tricks.md#quotes)
+* [Advanced Topics](/docs/advanced.md)
+  * [Composing Your App Using Commands](/docs/advanced.md#commands)
+  * [Building Configurable CLI Apps](/docs/advanced.md#configuration)
+  * [Customizing Yargs' Parser](/docs/advanced.md#customizing)
+  * [Bundling yargs](/docs/bundling.md)
+* [Contributing](/contributing.md)
 
-&copy; 2014-19 Lloyd Brookes \<75pound@gmail.com\>. Documented by [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown).
+## Supported Node.js Versions
+
+Libraries in this ecosystem make a best effort to track
+[Node.js' release schedule](https://nodejs.org/en/about/releases/). Here's [a
+post on why we think this is important](https://medium.com/the-node-js-collection/maintainers-should-consider-following-node-js-release-schedule-ab08ed4de71a).
+
+[npm-url]: https://www.npmjs.com/package/yargs
+[npm-image]: https://img.shields.io/npm/v/yargs.svg
+[standard-image]: https://img.shields.io/badge/code%20style-standard-brightgreen.svg
+[standard-url]: http://standardjs.com/
+[conventional-commits-image]: https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg
+[conventional-commits-url]: https://conventionalcommits.org/
+[slack-image]: http://devtoolscommunity.herokuapp.com/badge.svg
+[slack-url]: http://devtoolscommunity.herokuapp.com
+[type-definitions]: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/yargs
+[coverage-image]: https://img.shields.io/nycrc/yargs/yargs
+[coverage-url]: https://github.com/yargs/yargs/blob/master/.nycrc

@@ -1,295 +1,174 @@
-(function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-  typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = global || self, factory(global.typical = {}));
-}(this, function (exports) { 'use strict';
-
-  /**
-   * Isomorphic, functional type-checking for Javascript.
-   * @module typical
-   * @typicalname t
-   * @example
-   * const t = require('typical')
-   * const allDefined = array.every(t.isDefined)
-   */
-
-  /**
-   * Returns true if input is a number. It is a more reasonable alternative to `typeof n` which returns `number` for `NaN` and `Infinity`.
-   *
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   * @example
-   * > t.isNumber(0)
-   * true
-   * > t.isNumber(1)
-   * true
-   * > t.isNumber(1.1)
-   * true
-   * > t.isNumber(0xff)
-   * true
-   * > t.isNumber(0644)
-   * true
-   * > t.isNumber(6.2e5)
-   * true
-   * > t.isNumber(NaN)
-   * false
-   * > t.isNumber(Infinity)
-   * false
-   */
-  function isNumber (n) {
-    return !isNaN(parseFloat(n)) && isFinite(n)
-  }
-
-  /**
-   * A plain object is a simple object literal, it is not an instance of a class. Returns true if the input `typeof` is `object` and directly decends from `Object`.
-   *
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   * @example
-   * > t.isPlainObject({ something: 'one' })
-   * true
-   * > t.isPlainObject(new Date())
-   * false
-   * > t.isPlainObject([ 0, 1 ])
-   * false
-   * > t.isPlainObject(/test/)
-   * false
-   * > t.isPlainObject(1)
-   * false
-   * > t.isPlainObject('one')
-   * false
-   * > t.isPlainObject(null)
-   * false
-   * > t.isPlainObject((function * () {})())
-   * false
-   * > t.isPlainObject(function * () {})
-   * false
-   */
-  function isPlainObject (input) {
-    return input !== null && typeof input === 'object' && input.constructor === Object
-  }
-
-  /**
-   * An array-like value has all the properties of an array yet is not an array instance. An example is the `arguments` object. Returns `true`` if the input value is an object, not `null`` and has a `length` property set with a numeric value.
-   *
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   * @example
-   * function sum(x, y){
-   *   console.log(t.isArrayLike(arguments))
-   *   // prints `true`
-   * }
-   */
-  function isArrayLike (input) {
-    return isObject(input) && typeof input.length === 'number'
-  }
-
-  /**
-   * Returns true if the typeof input is `'object'` but not null.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isObject (input) {
-    return typeof input === 'object' && input !== null
-  }
-
-  /**
-   * Returns true if the input value is defined.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isDefined (input) {
-    return typeof input !== 'undefined'
-  }
-
-  /**
-   * Returns true if the input value is undefined.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isUndefined (input) {
-    return !isDefined(input)
-  }
-
-  /**
-   * Returns true if the input value is null.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isNull (input) {
-   return input === null
-  }
-
-  /**
-   * Returns true if the input value is both defined and not null.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isDefinedValue (input) {
-   return isDefined(input) && !isNull(input) && !Number.isNaN(input)
-  }
-
-  /**
-   * Returns true if the input value is an ES2015 `class`.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isClass (input) {
-    if (typeof input === 'function') {
-      return /^class /.test(Function.prototype.toString.call(input))
-    } else {
-      return false
+let shim;
+class Y18N {
+    constructor(opts) {
+        // configurable options.
+        opts = opts || {};
+        this.directory = opts.directory || './locales';
+        this.updateFiles = typeof opts.updateFiles === 'boolean' ? opts.updateFiles : true;
+        this.locale = opts.locale || 'en';
+        this.fallbackToLanguage = typeof opts.fallbackToLanguage === 'boolean' ? opts.fallbackToLanguage : true;
+        // internal stuff.
+        this.cache = Object.create(null);
+        this.writeQueue = [];
     }
-  }
-
-  /**
-   * Returns true if the input is a string, number, symbol, boolean, null or undefined value.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isPrimitive (input) {
-    if (input === null) return true
-    switch (typeof input) {
-      case 'string':
-      case 'number':
-      case 'symbol':
-      case 'undefined':
-      case 'boolean':
-        return true
-      default:
-        return false
+    __(...args) {
+        if (typeof arguments[0] !== 'string') {
+            return this._taggedLiteral(arguments[0], ...arguments);
+        }
+        const str = args.shift();
+        let cb = function () { }; // start with noop.
+        if (typeof args[args.length - 1] === 'function')
+            cb = args.pop();
+        cb = cb || function () { }; // noop.
+        if (!this.cache[this.locale])
+            this._readLocaleFile();
+        // we've observed a new string, update the language file.
+        if (!this.cache[this.locale][str] && this.updateFiles) {
+            this.cache[this.locale][str] = str;
+            // include the current directory and locale,
+            // since these values could change before the
+            // write is performed.
+            this._enqueueWrite({
+                directory: this.directory,
+                locale: this.locale,
+                cb
+            });
+        }
+        else {
+            cb();
+        }
+        return shim.format.apply(shim.format, [this.cache[this.locale][str] || str].concat(args));
     }
-  }
-
-  /**
-   * Returns true if the input is a Promise.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isPromise (input) {
-    if (input) {
-      const isPromise = isDefined(Promise) && input instanceof Promise;
-      const isThenable = input.then && typeof input.then === 'function';
-      return !!(isPromise || isThenable)
-    } else {
-      return false
+    __n() {
+        const args = Array.prototype.slice.call(arguments);
+        const singular = args.shift();
+        const plural = args.shift();
+        const quantity = args.shift();
+        let cb = function () { }; // start with noop.
+        if (typeof args[args.length - 1] === 'function')
+            cb = args.pop();
+        if (!this.cache[this.locale])
+            this._readLocaleFile();
+        let str = quantity === 1 ? singular : plural;
+        if (this.cache[this.locale][singular]) {
+            const entry = this.cache[this.locale][singular];
+            str = entry[quantity === 1 ? 'one' : 'other'];
+        }
+        // we've observed a new string, update the language file.
+        if (!this.cache[this.locale][singular] && this.updateFiles) {
+            this.cache[this.locale][singular] = {
+                one: singular,
+                other: plural
+            };
+            // include the current directory and locale,
+            // since these values could change before the
+            // write is performed.
+            this._enqueueWrite({
+                directory: this.directory,
+                locale: this.locale,
+                cb
+            });
+        }
+        else {
+            cb();
+        }
+        // if a %d placeholder is provided, add quantity
+        // to the arguments expanded by util.format.
+        const values = [str];
+        if (~str.indexOf('%d'))
+            values.push(quantity);
+        return shim.format.apply(shim.format, values.concat(args));
     }
-  }
-
-  /**
-   * Returns true if the input is an iterable (`Map`, `Set`, `Array`, Generator etc.).
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   * @example
-   * > t.isIterable('string')
-   * true
-   * > t.isIterable(new Map())
-   * true
-   * > t.isIterable([])
-   * true
-   * > t.isIterable((function * () {})())
-   * true
-   * > t.isIterable(Promise.resolve())
-   * false
-   * > t.isIterable(Promise)
-   * false
-   * > t.isIterable(true)
-   * false
-   * > t.isIterable({})
-   * false
-   * > t.isIterable(0)
-   * false
-   * > t.isIterable(1.1)
-   * false
-   * > t.isIterable(NaN)
-   * false
-   * > t.isIterable(Infinity)
-   * false
-   * > t.isIterable(function () {})
-   * false
-   * > t.isIterable(Date)
-   * false
-   * > t.isIterable()
-   * false
-   * > t.isIterable({ then: function () {} })
-   * false
-   */
-  function isIterable (input) {
-    if (input === null || !isDefined(input)) {
-      return false
-    } else {
-      return (
-        typeof input[Symbol.iterator] === 'function' ||
-        typeof input[Symbol.asyncIterator] === 'function'
-      )
+    setLocale(locale) {
+        this.locale = locale;
     }
-  }
-
-  /**
-   * Returns true if the input value is a string. The equivalent of `typeof input === 'string'` for use in funcitonal contexts.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isString (input) {
-    return typeof input === 'string'
-  }
-
-  /**
-   * Returns true if the input value is a function. The equivalent of `typeof input === 'function'` for use in funcitonal contexts.
-   * @param {*} - the input to test
-   * @returns {boolean}
-   * @static
-   */
-  function isFunction (input) {
-    return typeof input === 'function'
-  }
-
-  var index = {
-    isNumber,
-    isPlainObject,
-    isArrayLike,
-    isObject,
-    isDefined,
-    isUndefined,
-    isNull,
-    isDefinedValue,
-    isClass,
-    isPrimitive,
-    isPromise,
-    isIterable,
-    isString,
-    isFunction
-  };
-
-  exports.default = index;
-  exports.isArrayLike = isArrayLike;
-  exports.isClass = isClass;
-  exports.isDefined = isDefined;
-  exports.isDefinedValue = isDefinedValue;
-  exports.isFunction = isFunction;
-  exports.isIterable = isIterable;
-  exports.isNull = isNull;
-  exports.isNumber = isNumber;
-  exports.isObject = isObject;
-  exports.isPlainObject = isPlainObject;
-  exports.isPrimitive = isPrimitive;
-  exports.isPromise = isPromise;
-  exports.isString = isString;
-  exports.isUndefined = isUndefined;
-
-  Object.defineProperty(exports, '__esModule', { value: true });
-
-}));
+    getLocale() {
+        return this.locale;
+    }
+    updateLocale(obj) {
+        if (!this.cache[this.locale])
+            this._readLocaleFile();
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                this.cache[this.locale][key] = obj[key];
+            }
+        }
+    }
+    _taggedLiteral(parts, ...args) {
+        let str = '';
+        parts.forEach(function (part, i) {
+            const arg = args[i + 1];
+            str += part;
+            if (typeof arg !== 'undefined') {
+                str += '%s';
+            }
+        });
+        return this.__.apply(this, [str].concat([].slice.call(args, 1)));
+    }
+    _enqueueWrite(work) {
+        this.writeQueue.push(work);
+        if (this.writeQueue.length === 1)
+            this._processWriteQueue();
+    }
+    _processWriteQueue() {
+        const _this = this;
+        const work = this.writeQueue[0];
+        // destructure the enqueued work.
+        const directory = work.directory;
+        const locale = work.locale;
+        const cb = work.cb;
+        const languageFile = this._resolveLocaleFile(directory, locale);
+        const serializedLocale = JSON.stringify(this.cache[locale], null, 2);
+        shim.fs.writeFile(languageFile, serializedLocale, 'utf-8', function (err) {
+            _this.writeQueue.shift();
+            if (_this.writeQueue.length > 0)
+                _this._processWriteQueue();
+            cb(err);
+        });
+    }
+    _readLocaleFile() {
+        let localeLookup = {};
+        const languageFile = this._resolveLocaleFile(this.directory, this.locale);
+        try {
+            // When using a bundler such as webpack, readFileSync may not be defined:
+            if (shim.fs.readFileSync) {
+                localeLookup = JSON.parse(shim.fs.readFileSync(languageFile, 'utf-8'));
+            }
+        }
+        catch (err) {
+            if (err instanceof SyntaxError) {
+                err.message = 'syntax error in ' + languageFile;
+            }
+            if (err.code === 'ENOENT')
+                localeLookup = {};
+            else
+                throw err;
+        }
+        this.cache[this.locale] = localeLookup;
+    }
+    _resolveLocaleFile(directory, locale) {
+        let file = shim.resolve(directory, './', locale + '.json');
+        if (this.fallbackToLanguage && !this._fileExistsSync(file) && ~locale.lastIndexOf('_')) {
+            // attempt fallback to language only
+            const languageFile = shim.resolve(directory, './', locale.split('_')[0] + '.json');
+            if (this._fileExistsSync(languageFile))
+                file = languageFile;
+        }
+        return file;
+    }
+    _fileExistsSync(file) {
+        return shim.exists(file);
+    }
+}
+export function y18n(opts, _shim) {
+    shim = _shim;
+    const y18n = new Y18N(opts);
+    return {
+        __: y18n.__.bind(y18n),
+        __n: y18n.__n.bind(y18n),
+        setLocale: y18n.setLocale.bind(y18n),
+        getLocale: y18n.getLocale.bind(y18n),
+        updateLocale: y18n.updateLocale.bind(y18n),
+        locale: y18n.locale
+    };
+}
