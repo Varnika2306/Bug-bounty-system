@@ -1,174 +1,167 @@
-let shim;
-class Y18N {
-    constructor(opts) {
-        // configurable options.
-        opts = opts || {};
-        this.directory = opts.directory || './locales';
-        this.updateFiles = typeof opts.updateFiles === 'boolean' ? opts.updateFiles : true;
-        this.locale = opts.locale || 'en';
-        this.fallbackToLanguage = typeof opts.fallbackToLanguage === 'boolean' ? opts.fallbackToLanguage : true;
-        // internal stuff.
-        this.cache = Object.create(null);
-        this.writeQueue = [];
-    }
-    __(...args) {
-        if (typeof arguments[0] !== 'string') {
-            return this._taggedLiteral(arguments[0], ...arguments);
-        }
-        const str = args.shift();
-        let cb = function () { }; // start with noop.
-        if (typeof args[args.length - 1] === 'function')
-            cb = args.pop();
-        cb = cb || function () { }; // noop.
-        if (!this.cache[this.locale])
-            this._readLocaleFile();
-        // we've observed a new string, update the language file.
-        if (!this.cache[this.locale][str] && this.updateFiles) {
-            this.cache[this.locale][str] = str;
-            // include the current directory and locale,
-            // since these values could change before the
-            // write is performed.
-            this._enqueueWrite({
-                directory: this.directory,
-                locale: this.locale,
-                cb
-            });
-        }
-        else {
-            cb();
-        }
-        return shim.format.apply(shim.format, [this.cache[this.locale][str] || str].concat(args));
-    }
-    __n() {
-        const args = Array.prototype.slice.call(arguments);
-        const singular = args.shift();
-        const plural = args.shift();
-        const quantity = args.shift();
-        let cb = function () { }; // start with noop.
-        if (typeof args[args.length - 1] === 'function')
-            cb = args.pop();
-        if (!this.cache[this.locale])
-            this._readLocaleFile();
-        let str = quantity === 1 ? singular : plural;
-        if (this.cache[this.locale][singular]) {
-            const entry = this.cache[this.locale][singular];
-            str = entry[quantity === 1 ? 'one' : 'other'];
-        }
-        // we've observed a new string, update the language file.
-        if (!this.cache[this.locale][singular] && this.updateFiles) {
-            this.cache[this.locale][singular] = {
-                one: singular,
-                other: plural
-            };
-            // include the current directory and locale,
-            // since these values could change before the
-            // write is performed.
-            this._enqueueWrite({
-                directory: this.directory,
-                locale: this.locale,
-                cb
-            });
-        }
-        else {
-            cb();
-        }
-        // if a %d placeholder is provided, add quantity
-        // to the arguments expanded by util.format.
-        const values = [str];
-        if (~str.indexOf('%d'))
-            values.push(quantity);
-        return shim.format.apply(shim.format, values.concat(args));
-    }
-    setLocale(locale) {
-        this.locale = locale;
-    }
-    getLocale() {
-        return this.locale;
-    }
-    updateLocale(obj) {
-        if (!this.cache[this.locale])
-            this._readLocaleFile();
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                this.cache[this.locale][key] = obj[key];
-            }
-        }
-    }
-    _taggedLiteral(parts, ...args) {
-        let str = '';
-        parts.forEach(function (part, i) {
-            const arg = args[i + 1];
-            str += part;
-            if (typeof arg !== 'undefined') {
-                str += '%s';
-            }
-        });
-        return this.__.apply(this, [str].concat([].slice.call(args, 1)));
-    }
-    _enqueueWrite(work) {
-        this.writeQueue.push(work);
-        if (this.writeQueue.length === 1)
-            this._processWriteQueue();
-    }
-    _processWriteQueue() {
-        const _this = this;
-        const work = this.writeQueue[0];
-        // destructure the enqueued work.
-        const directory = work.directory;
-        const locale = work.locale;
-        const cb = work.cb;
-        const languageFile = this._resolveLocaleFile(directory, locale);
-        const serializedLocale = JSON.stringify(this.cache[locale], null, 2);
-        shim.fs.writeFile(languageFile, serializedLocale, 'utf-8', function (err) {
-            _this.writeQueue.shift();
-            if (_this.writeQueue.length > 0)
-                _this._processWriteQueue();
-            cb(err);
-        });
-    }
-    _readLocaleFile() {
-        let localeLookup = {};
-        const languageFile = this._resolveLocaleFile(this.directory, this.locale);
-        try {
-            // When using a bundler such as webpack, readFileSync may not be defined:
-            if (shim.fs.readFileSync) {
-                localeLookup = JSON.parse(shim.fs.readFileSync(languageFile, 'utf-8'));
-            }
-        }
-        catch (err) {
-            if (err instanceof SyntaxError) {
-                err.message = 'syntax error in ' + languageFile;
-            }
-            if (err.code === 'ENOENT')
-                localeLookup = {};
-            else
-                throw err;
-        }
-        this.cache[this.locale] = localeLookup;
-    }
-    _resolveLocaleFile(directory, locale) {
-        let file = shim.resolve(directory, './', locale + '.json');
-        if (this.fallbackToLanguage && !this._fileExistsSync(file) && ~locale.lastIndexOf('_')) {
-            // attempt fallback to language only
-            const languageFile = shim.resolve(directory, './', locale.split('_')[0] + '.json');
-            if (this._fileExistsSync(languageFile))
-                file = languageFile;
-        }
-        return file;
-    }
-    _fileExistsSync(file) {
-        return shim.exists(file);
-    }
+'use strict'
+
+const Client = require('./lib/client')
+const Dispatcher = require('./lib/dispatcher')
+const errors = require('./lib/core/errors')
+const Pool = require('./lib/pool')
+const BalancedPool = require('./lib/balanced-pool')
+const Agent = require('./lib/agent')
+const util = require('./lib/core/util')
+const { InvalidArgumentError } = errors
+const api = require('./lib/api')
+const buildConnector = require('./lib/core/connect')
+const MockClient = require('./lib/mock/mock-client')
+const MockAgent = require('./lib/mock/mock-agent')
+const MockPool = require('./lib/mock/mock-pool')
+const mockErrors = require('./lib/mock/mock-errors')
+const ProxyAgent = require('./lib/proxy-agent')
+const RetryHandler = require('./lib/handler/RetryHandler')
+const { getGlobalDispatcher, setGlobalDispatcher } = require('./lib/global')
+const DecoratorHandler = require('./lib/handler/DecoratorHandler')
+const RedirectHandler = require('./lib/handler/RedirectHandler')
+const createRedirectInterceptor = require('./lib/interceptor/redirectInterceptor')
+
+let hasCrypto
+try {
+  require('crypto')
+  hasCrypto = true
+} catch {
+  hasCrypto = false
 }
-export function y18n(opts, _shim) {
-    shim = _shim;
-    const y18n = new Y18N(opts);
-    return {
-        __: y18n.__.bind(y18n),
-        __n: y18n.__n.bind(y18n),
-        setLocale: y18n.setLocale.bind(y18n),
-        getLocale: y18n.getLocale.bind(y18n),
-        updateLocale: y18n.updateLocale.bind(y18n),
-        locale: y18n.locale
-    };
+
+Object.assign(Dispatcher.prototype, api)
+
+module.exports.Dispatcher = Dispatcher
+module.exports.Client = Client
+module.exports.Pool = Pool
+module.exports.BalancedPool = BalancedPool
+module.exports.Agent = Agent
+module.exports.ProxyAgent = ProxyAgent
+module.exports.RetryHandler = RetryHandler
+
+module.exports.DecoratorHandler = DecoratorHandler
+module.exports.RedirectHandler = RedirectHandler
+module.exports.createRedirectInterceptor = createRedirectInterceptor
+
+module.exports.buildConnector = buildConnector
+module.exports.errors = errors
+
+function makeDispatcher (fn) {
+  return (url, opts, handler) => {
+    if (typeof opts === 'function') {
+      handler = opts
+      opts = null
+    }
+
+    if (!url || (typeof url !== 'string' && typeof url !== 'object' && !(url instanceof URL))) {
+      throw new InvalidArgumentError('invalid url')
+    }
+
+    if (opts != null && typeof opts !== 'object') {
+      throw new InvalidArgumentError('invalid opts')
+    }
+
+    if (opts && opts.path != null) {
+      if (typeof opts.path !== 'string') {
+        throw new InvalidArgumentError('invalid opts.path')
+      }
+
+      let path = opts.path
+      if (!opts.path.startsWith('/')) {
+        path = `/${path}`
+      }
+
+      url = new URL(util.parseOrigin(url).origin + path)
+    } else {
+      if (!opts) {
+        opts = typeof url === 'object' ? url : {}
+      }
+
+      url = util.parseURL(url)
+    }
+
+    const { agent, dispatcher = getGlobalDispatcher() } = opts
+
+    if (agent) {
+      throw new InvalidArgumentError('unsupported opts.agent. Did you mean opts.client?')
+    }
+
+    return fn.call(dispatcher, {
+      ...opts,
+      origin: url.origin,
+      path: url.search ? `${url.pathname}${url.search}` : url.pathname,
+      method: opts.method || (opts.body ? 'PUT' : 'GET')
+    }, handler)
+  }
 }
+
+module.exports.setGlobalDispatcher = setGlobalDispatcher
+module.exports.getGlobalDispatcher = getGlobalDispatcher
+
+if (util.nodeMajor > 16 || (util.nodeMajor === 16 && util.nodeMinor >= 8)) {
+  let fetchImpl = null
+  module.exports.fetch = async function fetch (resource) {
+    if (!fetchImpl) {
+      fetchImpl = require('./lib/fetch').fetch
+    }
+
+    try {
+      return await fetchImpl(...arguments)
+    } catch (err) {
+      if (typeof err === 'object') {
+        Error.captureStackTrace(err, this)
+      }
+
+      throw err
+    }
+  }
+  module.exports.Headers = require('./lib/fetch/headers').Headers
+  module.exports.Response = require('./lib/fetch/response').Response
+  module.exports.Request = require('./lib/fetch/request').Request
+  module.exports.FormData = require('./lib/fetch/formdata').FormData
+  module.exports.File = require('./lib/fetch/file').File
+  module.exports.FileReader = require('./lib/fileapi/filereader').FileReader
+
+  const { setGlobalOrigin, getGlobalOrigin } = require('./lib/fetch/global')
+
+  module.exports.setGlobalOrigin = setGlobalOrigin
+  module.exports.getGlobalOrigin = getGlobalOrigin
+
+  const { CacheStorage } = require('./lib/cache/cachestorage')
+  const { kConstruct } = require('./lib/cache/symbols')
+
+  // Cache & CacheStorage are tightly coupled with fetch. Even if it may run
+  // in an older version of Node, it doesn't have any use without fetch.
+  module.exports.caches = new CacheStorage(kConstruct)
+}
+
+if (util.nodeMajor >= 16) {
+  const { deleteCookie, getCookies, getSetCookies, setCookie } = require('./lib/cookies')
+
+  module.exports.deleteCookie = deleteCookie
+  module.exports.getCookies = getCookies
+  module.exports.getSetCookies = getSetCookies
+  module.exports.setCookie = setCookie
+
+  const { parseMIMEType, serializeAMimeType } = require('./lib/fetch/dataURL')
+
+  module.exports.parseMIMEType = parseMIMEType
+  module.exports.serializeAMimeType = serializeAMimeType
+}
+
+if (util.nodeMajor >= 18 && hasCrypto) {
+  const { WebSocket } = require('./lib/websocket/websocket')
+
+  module.exports.WebSocket = WebSocket
+}
+
+module.exports.request = makeDispatcher(api.request)
+module.exports.stream = makeDispatcher(api.stream)
+module.exports.pipeline = makeDispatcher(api.pipeline)
+module.exports.connect = makeDispatcher(api.connect)
+module.exports.upgrade = makeDispatcher(api.upgrade)
+
+module.exports.MockClient = MockClient
+module.exports.MockPool = MockPool
+module.exports.MockAgent = MockAgent
+module.exports.mockErrors = mockErrors
