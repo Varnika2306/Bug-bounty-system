@@ -1,13 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.keccak512 = exports.keccak384 = exports.keccak256 = exports.keccak224 = void 0;
-const sha3_1 = require("@noble/hashes/sha3");
-const utils_js_1 = require("./utils.js");
-exports.keccak224 = (0, utils_js_1.wrapHash)(sha3_1.keccak_224);
-exports.keccak256 = (() => {
-    const k = (0, utils_js_1.wrapHash)(sha3_1.keccak_256);
-    k.create = sha3_1.keccak_256.create;
+import { keccak_224, keccak_256, keccak_384, keccak_512 } from "@noble/hashes/sha3";
+import { wrapHash } from "./utils.js";
+export const keccak224 = wrapHash(keccak_224);
+export const keccak256 = (() => {
+    const k = wrapHash(keccak_256);
+    k.create = keccak_256.create;
     return k;
 })();
-exports.keccak384 = (0, utils_js_1.wrapHash)(sha3_1.keccak_384);
-exports.keccak512 = (0, utils_js_1.wrapHash)(sha3_1.keccak_512);
+export const keccak384 = wrapHash(keccak_384);
+export const keccak512 = wrapHash(keccak_512);

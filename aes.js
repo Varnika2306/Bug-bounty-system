@@ -1,10 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.encrypt = encrypt;
-exports.decrypt = decrypt;
-const crypto_1 = require("@noble/hashes/crypto");
-const utils_js_1 = require("./utils.js");
-const crypto = { web: crypto_1.crypto };
+import { crypto as cr } from "@noble/hashes/crypto";
+import { concatBytes, equalsBytes } from "./utils.js";
+const crypto = { web: cr };
 function validateOpt(key, iv, mode) {
     if (!mode.startsWith("aes-")) {
         throw new Error(`AES submodule doesn't support mode ${mode}`);
@@ -36,7 +32,7 @@ async function getBrowserKey(mode, key, iv) {
     // recommended by NIST SP800-38A
     return [wKey, { name: `aes-${keyMode}`, iv, counter: iv, length: 128 }];
 }
-async function encrypt(msg, key, iv, mode = "aes-128-ctr", pkcs7PaddingEnabled = true) {
+export async function encrypt(msg, key, iv, mode = "aes-128-ctr", pkcs7PaddingEnabled = true) {
     validateOpt(key, iv, mode);
     if (crypto.web) {
         const [wKey, wOpt] = await getBrowserKey(mode, key, iv);
@@ -51,7 +47,7 @@ async function encrypt(msg, key, iv, mode = "aes-128-ctr", pkcs7PaddingEnabled =
     else if (crypto.node) {
         const cipher = crypto.node.createCipheriv(mode, key, iv);
         cipher.setAutoPadding(pkcs7PaddingEnabled);
-        return (0, utils_js_1.concatBytes)(cipher.update(msg), cipher.final());
+        return concatBytes(cipher.update(msg), cipher.final());
     }
     else {
         throw new Error("The environment doesn't have AES module");
@@ -66,21 +62,21 @@ async function getPadding(cypherText, key, iv, mode) {
     const res = await encrypt(lastBlock, key, iv, mode);
     return res.slice(0, 16);
 }
-async function decrypt(cypherText, key, iv, mode = "aes-128-ctr", pkcs7PaddingEnabled = true) {
+export async function decrypt(cypherText, key, iv, mode = "aes-128-ctr", pkcs7PaddingEnabled = true) {
     validateOpt(key, iv, mode);
     if (crypto.web) {
         const [wKey, wOpt] = await getBrowserKey(mode, key, iv);
         // Add empty padding so Chrome will correctly decrypt message
         if (!pkcs7PaddingEnabled && wOpt.name === "aes-cbc") {
             const padding = await getPadding(cypherText, key, iv, mode);
-            cypherText = (0, utils_js_1.concatBytes)(cypherText, padding);
+            cypherText = concatBytes(cypherText, padding);
         }
         const msg = await crypto.web.subtle.decrypt(wOpt, wKey, cypherText);
         const msgBytes = new Uint8Array(msg);
         // Safari always ignores padding (if no padding -> broken message)
         if (wOpt.name === "aes-cbc") {
             const encrypted = await encrypt(msgBytes, key, iv, mode);
-            if (!(0, utils_js_1.equalsBytes)(encrypted, cypherText)) {
+            if (!equalsBytes(encrypted, cypherText)) {
                 throw new Error("AES: wrong padding");
             }
         }
@@ -89,7 +85,7 @@ async function decrypt(cypherText, key, iv, mode = "aes-128-ctr", pkcs7PaddingEn
     else if (crypto.node) {
         const decipher = crypto.node.createDecipheriv(mode, key, iv);
         decipher.setAutoPadding(pkcs7PaddingEnabled);
-        return (0, utils_js_1.concatBytes)(decipher.update(cypherText), decipher.final());
+        return concatBytes(decipher.update(cypherText), decipher.final());
     }
     else {
         throw new Error("The environment doesn't have AES module");

@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ripemd160 = void 0;
-const ripemd160_1 = require("@noble/hashes/ripemd160");
-const utils_js_1 = require("./utils.js");
-exports.ripemd160 = (0, utils_js_1.wrapHash)(ripemd160_1.ripemd160);
+import { ripemd160 as _ripemd160 } from "@noble/hashes/ripemd160";
+import { wrapHash } from "./utils.js";
+export const ripemd160 = wrapHash(_ripemd160);

@@ -1,13 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.blake2b = void 0;
-const blake2b_1 = require("@noble/hashes/blake2b");
-const utils_js_1 = require("./utils.js");
-const blake2b = (msg, outputLength = 64) => {
-    (0, utils_js_1.assertBytes)(msg);
+import { blake2b as _blake2b } from "@noble/hashes/blake2b";
+import { assertBytes } from "./utils.js";
+export const blake2b = (msg, outputLength = 64) => {
+    assertBytes(msg);
     if (outputLength <= 0 || outputLength > 64) {
         throw Error("Invalid outputLength");
     }
-    return (0, blake2b_1.blake2b)(msg, { dkLen: outputLength });
+    return _blake2b(msg, { dkLen: outputLength });
 };
-exports.blake2b = blake2b;
