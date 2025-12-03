@@ -1,167 +1,183 @@
 'use strict'
 
-const Client = require('./lib/client')
-const Dispatcher = require('./lib/dispatcher')
-const errors = require('./lib/core/errors')
-const Pool = require('./lib/pool')
-const BalancedPool = require('./lib/balanced-pool')
-const Agent = require('./lib/agent')
-const util = require('./lib/core/util')
-const { InvalidArgumentError } = errors
-const api = require('./lib/api')
-const buildConnector = require('./lib/core/connect')
-const MockClient = require('./lib/mock/mock-client')
-const MockAgent = require('./lib/mock/mock-agent')
-const MockPool = require('./lib/mock/mock-pool')
-const mockErrors = require('./lib/mock/mock-errors')
-const ProxyAgent = require('./lib/proxy-agent')
-const RetryHandler = require('./lib/handler/RetryHandler')
-const { getGlobalDispatcher, setGlobalDispatcher } = require('./lib/global')
-const DecoratorHandler = require('./lib/handler/DecoratorHandler')
-const RedirectHandler = require('./lib/handler/RedirectHandler')
-const createRedirectInterceptor = require('./lib/interceptor/redirectInterceptor')
+const { parseSetCookie } = require('./parse')
+const { stringify } = require('./util')
+const { webidl } = require('../fetch/webidl')
+const { Headers } = require('../fetch/headers')
 
-let hasCrypto
-try {
-  require('crypto')
-  hasCrypto = true
-} catch {
-  hasCrypto = false
+/**
+ * @typedef {Object} Cookie
+ * @property {string} name
+ * @property {string} value
+ * @property {Date|number|undefined} expires
+ * @property {number|undefined} maxAge
+ * @property {string|undefined} domain
+ * @property {string|undefined} path
+ * @property {boolean|undefined} secure
+ * @property {boolean|undefined} httpOnly
+ * @property {'Strict'|'Lax'|'None'} sameSite
+ * @property {string[]} unparsed
+ */
+
+/**
+ * @param {Headers} headers
+ * @returns {Record<string, string>}
+ */
+function getCookies (headers) {
+  webidl.argumentLengthCheck(arguments, 1, { header: 'getCookies' })
+
+  webidl.brandCheck(headers, Headers, { strict: false })
+
+  const cookie = headers.get('cookie')
+  const out = {}
+
+  if (!cookie) {
+    return out
+  }
+
+  for (const piece of cookie.split(';')) {
+    const [name, ...value] = piece.split('=')
+
+    out[name.trim()] = value.join('=')
+  }
+
+  return out
 }
 
-Object.assign(Dispatcher.prototype, api)
+/**
+ * @param {Headers} headers
+ * @param {string} name
+ * @param {{ path?: string, domain?: string }|undefined} attributes
+ * @returns {void}
+ */
+function deleteCookie (headers, name, attributes) {
+  webidl.argumentLengthCheck(arguments, 2, { header: 'deleteCookie' })
 
-module.exports.Dispatcher = Dispatcher
-module.exports.Client = Client
-module.exports.Pool = Pool
-module.exports.BalancedPool = BalancedPool
-module.exports.Agent = Agent
-module.exports.ProxyAgent = ProxyAgent
-module.exports.RetryHandler = RetryHandler
+  webidl.brandCheck(headers, Headers, { strict: false })
 
-module.exports.DecoratorHandler = DecoratorHandler
-module.exports.RedirectHandler = RedirectHandler
-module.exports.createRedirectInterceptor = createRedirectInterceptor
+  name = webidl.converters.DOMString(name)
+  attributes = webidl.converters.DeleteCookieAttributes(attributes)
 
-module.exports.buildConnector = buildConnector
-module.exports.errors = errors
+  // Matches behavior of
+  // https://github.com/denoland/deno_std/blob/63827b16330b82489a04614027c33b7904e08be5/http/cookie.ts#L278
+  setCookie(headers, {
+    name,
+    value: '',
+    expires: new Date(0),
+    ...attributes
+  })
+}
 
-function makeDispatcher (fn) {
-  return (url, opts, handler) => {
-    if (typeof opts === 'function') {
-      handler = opts
-      opts = null
-    }
+/**
+ * @param {Headers} headers
+ * @returns {Cookie[]}
+ */
+function getSetCookies (headers) {
+  webidl.argumentLengthCheck(arguments, 1, { header: 'getSetCookies' })
 
-    if (!url || (typeof url !== 'string' && typeof url !== 'object' && !(url instanceof URL))) {
-      throw new InvalidArgumentError('invalid url')
-    }
+  webidl.brandCheck(headers, Headers, { strict: false })
 
-    if (opts != null && typeof opts !== 'object') {
-      throw new InvalidArgumentError('invalid opts')
-    }
+  const cookies = headers.getSetCookie()
 
-    if (opts && opts.path != null) {
-      if (typeof opts.path !== 'string') {
-        throw new InvalidArgumentError('invalid opts.path')
-      }
+  if (!cookies) {
+    return []
+  }
 
-      let path = opts.path
-      if (!opts.path.startsWith('/')) {
-        path = `/${path}`
-      }
+  return cookies.map((pair) => parseSetCookie(pair))
+}
 
-      url = new URL(util.parseOrigin(url).origin + path)
-    } else {
-      if (!opts) {
-        opts = typeof url === 'object' ? url : {}
-      }
+/**
+ * @param {Headers} headers
+ * @param {Cookie} cookie
+ * @returns {void}
+ */
+function setCookie (headers, cookie) {
+  webidl.argumentLengthCheck(arguments, 2, { header: 'setCookie' })
 
-      url = util.parseURL(url)
-    }
+  webidl.brandCheck(headers, Headers, { strict: false })
 
-    const { agent, dispatcher = getGlobalDispatcher() } = opts
+  cookie = webidl.converters.Cookie(cookie)
 
-    if (agent) {
-      throw new InvalidArgumentError('unsupported opts.agent. Did you mean opts.client?')
-    }
+  const str = stringify(cookie)
 
-    return fn.call(dispatcher, {
-      ...opts,
-      origin: url.origin,
-      path: url.search ? `${url.pathname}${url.search}` : url.pathname,
-      method: opts.method || (opts.body ? 'PUT' : 'GET')
-    }, handler)
+  if (str) {
+    headers.append('Set-Cookie', stringify(cookie))
   }
 }
 
-module.exports.setGlobalDispatcher = setGlobalDispatcher
-module.exports.getGlobalDispatcher = getGlobalDispatcher
+webidl.converters.DeleteCookieAttributes = webidl.dictionaryConverter([
+  {
+    converter: webidl.nullableConverter(webidl.converters.DOMString),
+    key: 'path',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters.DOMString),
+    key: 'domain',
+    defaultValue: null
+  }
+])
 
-if (util.nodeMajor > 16 || (util.nodeMajor === 16 && util.nodeMinor >= 8)) {
-  let fetchImpl = null
-  module.exports.fetch = async function fetch (resource) {
-    if (!fetchImpl) {
-      fetchImpl = require('./lib/fetch').fetch
-    }
-
-    try {
-      return await fetchImpl(...arguments)
-    } catch (err) {
-      if (typeof err === 'object') {
-        Error.captureStackTrace(err, this)
+webidl.converters.Cookie = webidl.dictionaryConverter([
+  {
+    converter: webidl.converters.DOMString,
+    key: 'name'
+  },
+  {
+    converter: webidl.converters.DOMString,
+    key: 'value'
+  },
+  {
+    converter: webidl.nullableConverter((value) => {
+      if (typeof value === 'number') {
+        return webidl.converters['unsigned long long'](value)
       }
 
-      throw err
-    }
+      return new Date(value)
+    }),
+    key: 'expires',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters['long long']),
+    key: 'maxAge',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters.DOMString),
+    key: 'domain',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters.DOMString),
+    key: 'path',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters.boolean),
+    key: 'secure',
+    defaultValue: null
+  },
+  {
+    converter: webidl.nullableConverter(webidl.converters.boolean),
+    key: 'httpOnly',
+    defaultValue: null
+  },
+  {
+    converter: webidl.converters.USVString,
+    key: 'sameSite',
+    allowedValues: ['Strict', 'Lax', 'None']
+  },
+  {
+    converter: webidl.sequenceConverter(webidl.converters.DOMString),
+    key: 'unparsed',
+    defaultValue: []
   }
-  module.exports.Headers = require('./lib/fetch/headers').Headers
-  module.exports.Response = require('./lib/fetch/response').Response
-  module.exports.Request = require('./lib/fetch/request').Request
-  module.exports.FormData = require('./lib/fetch/formdata').FormData
-  module.exports.File = require('./lib/fetch/file').File
-  module.exports.FileReader = require('./lib/fileapi/filereader').FileReader
+])
 
-  const { setGlobalOrigin, getGlobalOrigin } = require('./lib/fetch/global')
-
-  module.exports.setGlobalOrigin = setGlobalOrigin
-  module.exports.getGlobalOrigin = getGlobalOrigin
-
-  const { CacheStorage } = require('./lib/cache/cachestorage')
-  const { kConstruct } = require('./lib/cache/symbols')
-
-  // Cache & CacheStorage are tightly coupled with fetch. Even if it may run
-  // in an older version of Node, it doesn't have any use without fetch.
-  module.exports.caches = new CacheStorage(kConstruct)
+module.exports = {
+  getCookies,
+  deleteCookie,
+  getSetCookies,
+  setCookie
 }
-
-if (util.nodeMajor >= 16) {
-  const { deleteCookie, getCookies, getSetCookies, setCookie } = require('./lib/cookies')
-
-  module.exports.deleteCookie = deleteCookie
-  module.exports.getCookies = getCookies
-  module.exports.getSetCookies = getSetCookies
-  module.exports.setCookie = setCookie
-
-  const { parseMIMEType, serializeAMimeType } = require('./lib/fetch/dataURL')
-
-  module.exports.parseMIMEType = parseMIMEType
-  module.exports.serializeAMimeType = serializeAMimeType
-}
-
-if (util.nodeMajor >= 18 && hasCrypto) {
-  const { WebSocket } = require('./lib/websocket/websocket')
-
-  module.exports.WebSocket = WebSocket
-}
-
-module.exports.request = makeDispatcher(api.request)
-module.exports.stream = makeDispatcher(api.stream)
-module.exports.pipeline = makeDispatcher(api.pipeline)
-module.exports.connect = makeDispatcher(api.connect)
-module.exports.upgrade = makeDispatcher(api.upgrade)
-
-module.exports.MockClient = MockClient
-module.exports.MockPool = MockPool
-module.exports.MockAgent = MockAgent
-module.exports.mockErrors = mockErrors
